@@ -1,4 +1,0 @@
-#include: BasicIO
-print: Hello HelloVar
-clean:
-return: 0 
