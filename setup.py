@@ -6,7 +6,6 @@ extensions = [
     Extension(name="phardwareitk.GUI.renderGUI", sources=["phardwareitk/GUI/renderGUI.pyx"]),
 ]
 
-
 setup=(
     name="phardwareitk",
     extensions=cythonize(extensions)
