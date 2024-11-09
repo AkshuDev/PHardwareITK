@@ -1,13 +1,13 @@
 from setuptools import setup, Extension
 from Cython.Build import cythonize
+import os
 
 extensions = [
-    Extension("phardwareitk.GUI.renderGUI", ["phardwareitk/GUI/renderGUI.pyx"]),
+    Extension(name="phardwareitk.GUI.renderGUI", sources=["phardwareitk/GUI/renderGUI.pyx"]),
 ]
 
-setup(
+
+setup=(
     name="phardwareitk",
-    version="0.1.1",
-    packages=["phardwareitk", "phardwareitk.CLI", ...],  # List all your packages here
-    ext_modules=cythonize(extensions),
+    extensions=cythonize(extensions)
 )
