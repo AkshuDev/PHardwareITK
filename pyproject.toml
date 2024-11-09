@@ -27,9 +27,6 @@ Issues = "https://github.com/AkshuDev/PHardwareITK/issues"
 Website = "https://paperecahange.wixsite.com/pheonixstudios"
 Source = "https://github.com/AkshuDev/PHardwareITK"
 
-[tool.setuptools.extensions]
-cython = {sources = ["phardwareitk/GUI/renderGUI.pyx"]}
-
 [tool.setuptools]
 packages = ["phardwareitk",
 "phardwareitk.CLI",
