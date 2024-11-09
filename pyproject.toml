@@ -28,7 +28,7 @@ Website = "https://paperecahange.wixsite.com/pheonixstudios"
 Source = "https://github.com/AkshuDev/PHardwareITK"
 
 [tool.setuptools.extensions]
-cython = {sources = ["phardwareitk/GUI/C/renderGUI.pyx"]}
+cython = {sources = ["phardwareitk/GUI/renderGUI.pyx"]}
 
 [tool.setuptools]
 packages = ["phardwareitk",
@@ -37,7 +37,6 @@ packages = ["phardwareitk",
 "phardwareitk.Extentions",
 "phardwareitk.FileSystem",
 "phardwareitk.GUI",
-"phardwareitk.GUI.C",
 "phardwareitk.HGame",
 "phardwareitk.ModuleController",
 "phardwareitk.PLTEC",
