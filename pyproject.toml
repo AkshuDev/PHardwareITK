@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "phardwareitk"
+version = "0.1.1"
+authors = [
+  { name="Pheonix Studios", email="pheonix.community.mail@gmail.com" },
+  { name="Akshobhya Sasun", email="akshobhyasasun@gmail.com" },
+  { name="Aarav Nayak", email="legoheroaarav@gmail.com" }
+]
+description = "PHardwareITK or Pheonix Hardware Interface Toolkit allows users to do whatever they want with computer hardware from creating custom CLI/GUI apps to Checking System Usage/Faults. [Includes PLTEC, a custom language to .exe/.elf/.aef/.asm/.o converter [https://github.com/AkshuDev/PLTEC]]"
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/AkshuDev/PHardwareITK"
+Issues = "https://github.com/AkshuDev/PHardwareITK/issues"
+Website = "https://paperecahange.wixsite.com/pheonixstudios"
+Source = "https://github.com/AkshuDev/PHardwareITK"
+
+[tool.setuptools]
+packages = ["phardwareitk",
+"phardwareitk.CLI",
+"phardwareitk.ErrorSystem",
+"phardwareitk.Extentions",
+"phardwareitk.FileSystem",
+"phardwareitk.GUI",
+"phardwareitk.GUI.C",
+"phardwareitk.HGame",
+"phardwareitk.ModuleController",
+"phardwareitk.PLTEC",
+"phardwareitk.System"
+]
