@@ -31,7 +31,7 @@ Source = "https://github.com/AkshuDev/PHardwareITK"
 packages = ["phardwareitk",
 "phardwareitk.CLI",
 "phardwareitk.ErrorSystem",
-"phardwareitk.Extentions",
+"phardwareitk.Extensions",
 "phardwareitk.FileSystem",
 "phardwareitk.GUI",
 "phardwareitk.HGame",
