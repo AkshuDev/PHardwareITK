@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "phardwareitk"
-version = "0.1.3.1"
+version = "0.1.3.2-pre"
 authors = [
   { name="Pheonix Studios", email="pheonix.community.mail@gmail.com" },
   { name="Akshobhya Sasun", email="akshobhyasasun@gmail.com" },
@@ -37,5 +37,10 @@ packages = ["phardwareitk",
 "phardwareitk.HGame",
 "phardwareitk.ModuleController",
 "phardwareitk.PLTEC",
-"phardwareitk.System"
+"phardwareitk.System",
+"phardwareitk.Memory",
+"phardwareitk.Memory._platform",
+"phardwareitk.GPU",
+"phardwareitk.GPU.IntelUHD",
+"phardwareitk.GPU.StressTester"
 ]
