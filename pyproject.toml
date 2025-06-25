@@ -18,7 +18,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
-dependencies = ["pysdl2", "pysdl2-dll", "PyOpenGL", "keyboard"]
+dependencies = []
 
 [project.urls]
 Homepage = "https://github.com/AkshuDev/PHardwareITK"
