@@ -6,118 +6,247 @@ import sys
 NULL = 0
 
 # Variables, and types
+# The most basic needs
+class Size_t:
+	"""size_t"""
+	
+	def __init__(value:int) -> None:
+		self.value = value #bytes
+		self.bytes = value
+		self.bits = value * 8
+		self.kb = value / 1024
+		self.mb = self.kb / 1024
+		self.gb = self.mb / 1024
+		self.tb = self.gb / 1024
+		
+	def __repr__(self) -> str:
+		return f"{self.bytes}"
 
-class Pointer:
-    """A generic pointer class that holds a reference to a variable."""
+class Uint8_t:
+	"""uint8_t"""
+	def __init__(value) -> None:
+		self.og_value = value
+		
+		if isinstance(value, str):
+			if not len(value) == 0:
+				value = ord(value)
+			else:
+				value = 0
+		elif isinstance(value, bytes):
+			value = int.from_bytes(value, 'big')
+		
+		if not value >= 0xF:
+			raise TypeError("Value exceeds 8 bits or 1 byte")
+			
+		self.value = value
+		self.size = 0xF
+		
+	def __repr__(self) -> str:
+		return f"{self.og_value}"
 
-    def __init__(self, value):
-        """Initializes the pointer with a given value."""
-        self.value = value
-        self.parent = None  # Optional: Track original variable
+class Uint16_t:
+	"""uint16_t"""
+	def __init__(value) -> None:
+		self.og_value = value
+		
+		if isinstance(value, str):
+			if not len(value) == 0:
+				value = ord(value)
+			else:
+				value = 0
+		elif isinstance(value, bytes):
+			value = int.from_bytes(value, 'big')
+		
+		if not value >= 0xFF:
+			raise TypeError("Value Exceeds 16 bits or 2 bytes")
+			
+		self.value = value
+		self.size = 0xFF
+		
+	def __repr__(self) -> str:
+		return f"{self.og_value}"
 
-    def __repr__(self):
-        return f"<Pointer to {type(self.value).__name__} at {hex(id(self))}>"
+class Uint32_t:
+	"""uint32_t"""
+	def __init__(value) -> None:
+		self.og_value = value
+		
+		if isinstance(value, str):
+			if not len(value) == 0:
+				value = ord(value)
+			else:
+				value = 0
+		elif isinstance(value, bytes):
+			value = int.from_bytes(value, 'big')
+		
+		if not value >= 0xFFFF:
+			raise TypeError("Value Exceeds 32 bits or 4 bytes")
+			
+		self.value = value
+		self.size = 0xFFFF
+		
+	def __repr__(self) -> str:
+		return f"{self.og_value}"
 
-class Char:
-    """Represents a character. [1 byte]"""
-    def __init__(self, value:Union[str, int]) -> None:
-        if not isinstance(value, str):
-            raise TypeError("A [char] can only store single characters, not numbers, or any other type.")
+class Uint64_t:
+	"""uint64_t"""
+	def __init__(value) -> None:
+		self.og_value = value
+		
+		if isinstance(value, str):
+			if not len(value) == 0:
+				value = ord(value)
+			else:
+				value = 0
+		elif isinstance(value, bytes):
+			value = int.from_bytes(value, 'big')
+			
+		if not value >= 0xFFFFFFFF:
+			raise TypeError("Value Exceeds 64 bits or 8 bytes")
+			
+		self.value = value
+		self.size = 0xFFFFFFFF
+		
+	def __repr__(self) -> str:
+		return f"{self.og_value}"
 
-        if not len(value) == 1:
-            raise TypeError("A [char] can only store 1 byte.")
+# Types of int
+class Short(Uint16_t):
+	"""short"""
+	def __init__(self, value:int) -> None:
+		super().__init__(value)
 
-        self.value:int = ord(value)
-        self.printable_value:str = value
-        self.size:int = len(value)
+	def __repr__(self) -> str:
+		return super().__repr__()
 
-    def __repr__(self):
-        return f"Character [{self.printable_value}] of size [{self.size}]"
+class Long(Uint32_t):
+	"""long"""
+	def __init__(self, value:int) -> None:
+		super().__init__(value)
 
-class Short:
-    """Stores small integers [-32768 to 32767]
-    """
-    def __init__(self, value:int) -> None:
-        if not isinstance(value, int):
-            raise TypeError("A [short] can only store integers.")
+	def __repr__(self) -> str:
+		return f"Long of value [{self.value}] of size [{self.size}]"
+		
+class Int(Uint32_t):
+	""int""
+	def __init__(self, value:int) -> None:
+		super().__init__(value)
+		
+	def __repr__(self) -> str:
+		return super().__repr__()
+		
+# Chars and strings
+class Char(Uint8_t):
+	"""char"""
+	def __init__(self, value:Union[str, int, bytes]) -> None:
+		super().__init__(value)
 
-        if value > 32676 or value < -32768:
-            raise TypeError("A [short] can only store from [-32768] to [32676].")
+	def __repr__(self) -> str:
+		return super().__repr__()
 
-        self.value:int = value
-        self.size:int = sys.getsizeof(value)
-
-    def __repr__(self):
-        return f"Short [{self.value}] of size [{self.size}]."
-
-class Long:
-    """Larger Integer type.
-    """
-    def __init__(self, value:int):
-        if not isinstance(value, int):
-            raise TypeError("[long] can only store integers.")
-
-        self.value = value
-        self.size = sys.getsizeof(value)
-
-    def __repr__(self):
-        return f"Long of value [{self.value}] of size [{self.size}]"
-
+# Signed and Unsigned
 class Signed:
-    """Explicit declaration of an var being able to store both negative and positive values."""
-    def __init__(self, value:Union[Char, int, Short, Long]):
-        if not isinstance(value, Char) and (not isinstance(value, int) and (not isinstance(value, Short) and not isinstance(value, Long))):
-            raise TypeError("[signed] only works on [int].")
+	"""signed"""
+	def __init__(self, value) -> None:
+		self.value:int = value
 
-        self.value:int = value
-        self.size:int = 0
-        self.type = ""
-        if isinstance(value, int):
-            self.type = "Int"
-            self.size = sys.getsizeof(value)
-        elif isinstance(value, Char):
-            self.type = "Char"
-            self.size = value.size
-            self.value = value.value
-        elif isinstance(value, Short):
-            self.type = "Short"
-            self.size = value.size
-            self.value = value.value
-        elif isinstance(value, Long):
-            self.type = "Long"
-            self.size = value.size
-            self.value = value.value
-
-    def __repr__(self):
-        return f"Signed {self.type} of value [{self.value}] of size [{self.size}]"
+	def __repr__(self) -> str:
+		return super().__repr__()
 
 class Unsigned:
-    """Explicit declaration of an var being able to store only non-negative values [0, 1, 2, ...]."""
-    def __init__(self, value:Union[Char, int, Short, Long]):
-        if not isinstance(value, Char) and (not isinstance(value, int) and (not isinstance(value, Short) and not isinstance(value, Long))):
-            raise TypeError("[unsigned] only works on [int].")
+	"""unsigned"""
+	def __init__(self, value) -> None:
+		self.value = value
+		
+		if value.value < 0:
+			raise TypeError("Negative value in unsigned")
 
-        self.value:int = value
-        self.size:int = 0
-        self.type = ""
-        if isinstance(value, int):
-            self.type = "Int"
-            self.size = sys.getsizeof(value)
-        elif isinstance(value, Char):
-            self.type = "Char"
-            self.size = value.size
-            self.value = value.value
-        elif isinstance(value, Short):
-            self.type = "Short"
-            self.size = value.size
-            self.value = value.value
-        elif isinstance(value, Long):
-            self.type = "Long"
-            self.size = value.size
-            self.value = value.value
+	def __repr__(self) -> str:
+		return super().__repr__()
 
-        if value < 0:
-            raise TypeError("[unsigned] can only store positive values.")
+# Pointers and void
+class Void:
+	"""void"""
+	def __init__(self) -> None:
+		self.size = 0
+		self.value = None
+	
+	def __repr__(self) -> str:
+		return "<void>"
 
-    def __repr__(self):
-        return f"Unsigned {self.type} of value [{self.value}] of size [{self.size}]"
+class Pointer(Uint64_t):
+	"""*<value>"""
+
+	def __init__(self, value) -> None:
+		self.pointer = value
+		super().__init__(id(value))
+
+	def __repr__(self) -> str:
+		return super().__repr__()
+
+# Funcs (Basic)
+def sizeof(value:object):
+	if isinstance(value, int):
+		return Size_t(Int(value).size)
+	elif isinstance(value, str):
+		return Size_t(Pointer(list(value)).size)
+	elif isinstance(value, bytes):
+		return Size_t(Uint64_t(value).size)
+	else:
+		return Size_t(value.size)
+
+# Structs
+class Struct:
+	"""A generic C struct"""
+	
+	def __init__(self, structure:dict) -> None:
+		"""Format:
+			{
+				'<Name>': {
+					'type': <type in form of one of the class here>,
+					'value': <value>
+				}
+			}
+		"""
+		self.structure = structure
+		self.size = 0
+	
+	def access(self, name:str) -> Any:
+		"""Returns the value of the object"""
+		val = None
+		
+		try:
+			val = self.structure[name]['value']
+		except Exception:
+			return -1
+			
+		return val
+		
+	def set(self, name:str, value) -> int:
+		"""Sets the new value of a part of the struct. NOTE: The new value must be of the old defined type"""
+		t = None
+		
+		try:
+			t = self.structure[name]['type']
+		except Exception:
+			return -1
+			
+		if not isinstance(value, t):
+			return -2
+			
+		try:
+			self.structure[name]['value'] = value
+		except Exception:
+			return -3
+			
+		return 0
+	
+	def size(self) -> Size_t:
+		self.size = 0
+		for key, value in self.structure.items():
+			self.size += sizeof(value['value'])
+	
+	def fill(self, data:bytes) -> int:
+		"""Fills the entire struct by the provided value"""
+		
+		
