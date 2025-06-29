@@ -4,7 +4,7 @@ import struct
 
 # NOTE: This is PBFS 64-bit version, for 128-bit version that supports ~356,000,000 Yottabytes please download the C/ASM version of pbfs! thanks a lot.
 
-PBFS_HEADER = "<6sII24sQIQHII" 
+PBFS_HEADER = "<6sII24sQIQHII"
 
 """typedef struct {
     char Magic[6]; // PBFS\x00\x00
@@ -99,11 +99,11 @@ DRIVE_PARAMETERS = "<HHIIQH6x"
     uint8_t  reserved[6];       // 0x1A - reserved
 } __attribute__((packed)) DriveParameters;"""
 
-PBFS_FILE_LIST_ENTRY = "<
+PBFS_FILE_LIST_ENTRY = "<"
 
-typedef struct {
+"""typedef struct {
     char* name;
     uint32_t lba;
-} PBFS_FileListEntry;
+} PBFS_FileListEntry;"""
 
 #endif
