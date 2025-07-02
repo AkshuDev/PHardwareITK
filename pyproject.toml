@@ -9,7 +9,7 @@ authors = [
   { name="Pheonix Studios", email="PheonixStudiosInfo@gmail.com" },
   { name="Akshobhya Sasun", email="akshobhyasasun@gmail.com" }
 ]
-description = "PHardwareITK, or Pheonix Hardware Interface Toolkit, is a comprehensive Python module. This toolkit provides a variety of functions and utilities to assist developers in creating complex systems/programs. [Includes PLTEC, a custom language to .exe/.elf/.aef/.asm/.o converter [https://github.com/AkshuDev/PLTEC]]"
+description = "PHardwareITK, or Pheonix Hardware Interface Toolkit, is a comprehensive Python module. This toolkit provides a variety of functions and utilities to assist developers in creating complex systems/programs. It provides many toolkits and extensions for all your needs, want to emulate c in python that actually works well PHardwareITK got your back, want to make a OS easily, PHardwareITK got your back, please use the Github Wiki to learn more"
 readme = "README.md"
 requires-python = ">=3.7"
 classifiers = [
@@ -23,6 +23,7 @@ dependencies = []
 [project.urls]
 Homepage = "https://github.com/AkshuDev/PHardwareITK"
 Issues = "https://github.com/AkshuDev/PHardwareITK/issues"
+Wiki = "https://github.com/AkshuDev/PHardwareITK/wiki"
 Website = "https://paperexcahange.wixsite.com/pheonixstudios"
 Source = "https://github.com/AkshuDev/PHardwareITK"
 
