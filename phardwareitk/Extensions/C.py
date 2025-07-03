@@ -41,7 +41,39 @@ def full_delete(objects:list[object]) -> None:
 	"""Deletes all objects in a list"""
 	for obj in objects:
 		# Remove them from the memory map
-		del MEMORY_MAP[obj.address]
+		MEMORY_MAP[obj.address].__del__()
+
+def del_mem(addr:int) -> None:
+	"""Deletes a memory block"""
+	try:
+		MEMORY_MAP[addr].__del__()
+	except Exception as e:
+		return None
+
+def get_mem(addr:int) -> object:
+	obj = None
+	
+	try:
+		obj = MEMORY_MAP[addr]
+	except Exception:
+		return None
+	
+	return obj
+
+def set_mem(addr:int, obj:object) -> None:
+	"""Sets a obj to a memory address"""
+	size = 4 # Default int
+	
+	if isinstance(obj, int):
+		raise Exception("Sorry can't use Python int here, please use proper C.py int")
+	elif isinstance(obj, str):
+		raise Exception("Sorry can't use Python string here, please use proper C.py string")
+	elif isinstance(obj, bytes):
+		raise Exception("Sorry can't use Python bytes here, use Uint[Size in bits you want_t")
+	else:
+		size = obj.size
+	ALLOC_TABLE[addr] = size
+	MEMORY_MAP[addr] = obj
 
 # Variables, and types
 # The most basic needs
@@ -317,7 +349,7 @@ class Pointer(Uint64_t):
 		super().__init__(self.pointer_address)
 		# Don't Map * to memory
 
-	def derefernce(self) -> object:
+	def dereference(self) -> object:
 		if isinstance(self.type, Void):
 			raise TypeError("Cannot dereference a void pointer without casting it to another type.")
 
@@ -338,7 +370,14 @@ class Pointer(Uint64_t):
 
 	@classmethod
 	def __class_getitem__(cls, type_):
-		return cls(type_, NULL)
+		class TypedPointer(cls):
+			self.__type__ = type_
+			self.save = cls
+			
+			def __new__(cls_, *args, **kwargs):
+				return self.save
+		
+		return TypedPointer
 
 # String creation
 def string(value:str) -> Pointer[Char]:
@@ -357,12 +396,15 @@ def string(value:str) -> Pointer[Char]:
 
 	return Pointer(Char, string[0]) # char* is basically the pointer to the first char in a string
 
+CHAR_PTR = Pointer[Char];
+
 # Arrays
 class Array:
 	"""<type>[<size>]"""
 	def __init__(self, type:object, size:int) -> None:
 		self.type = type
-		self.size = size
+		self.size = size * type.size
+		self.asize = size
 
 		self.tsize = type.size
 
@@ -371,7 +413,7 @@ class Array:
 		self.deleted = False
 
 	def fill(self, data:bytes) -> None:
-		for i in range(self.size, step=self.tsize):
+		for i in range(self.asize, step=self.tsize):
 			self.array.append(self.type(data[i]))
 
 	def __repr__(self) -> str:
@@ -388,6 +430,17 @@ class Array:
 			obj.__del__()
 
 		self.deleted = True
+	
+	@classmethod
+	def __class_getitem__(cls, type_:object, size:int):
+		class TypedArray(cls):
+			self.__type__ = (type_, size)
+			self.save = cls
+			
+			def __new__(cls_, *args, **kwargs):
+				return self.save
+		
+		return TypedArray
 
 # Funcs (Basic)
 def sizeof(value:object) -> Size_t:
@@ -500,10 +553,12 @@ class Struct:
 
 		return 0
 
-	def get_size(self) -> Size_t:
+	def get_size(self) -> int:
 		self.size = 0
 		for key, value in self.structure.items():
 			self.size += sizeof(value['value'])
+			
+		return self.size
 
 	def fill_b(self, data:bytes, byteorder:str='big') -> int:
 		"""Fills the entire struct by the provided value (bytes)"""
@@ -551,6 +606,26 @@ class Struct:
 		data = file.read(self.size)
 		return self.fill_b(data, byteorder)
 
+	def write_b(self, buffer_:Pointer[Void]) -> int:
+		if self.size < 1:
+			return -1 # Size = 0
+			
+		addr = buffer_.pointer_address	
+		
+		for name, value in self.structure.items():
+			if value['value'] == None:
+				val = Int(NULL)
+			
+				set_mem(addr, val)
+			
+				addr += val.size
+				next_alloc += val.size
+				
+			set_mem(addr, value['value'])
+			
+			addr += value['value'].size
+			next_alloc += value['value'].size
+
 	def __del__(self) -> None:
 		MEMORY_MAP.pop(self.address)
 		ALLOC_TABLE.pop(self.address)
@@ -562,3 +637,181 @@ class Struct:
 			if not val is None:
 				del val
 
+	@classmethod
+	def __class_getitem__(cls, struct:dict):
+		class TypedStruct(cls):
+			self.__type__ = type_
+			self.save = cls
+			
+			def __new__(cls_, *args, **kwargs):
+				return self.save
+		
+		return TypedStruct
+
+# _IO_FILE
+_IO_FILE_STRUCT = {
+	"_flags": {
+		"type": Int,
+		"value": None
+	},
+	"_IO_read_ptr": {
+		"type": Pointer[Char],
+		"value": None
+	},
+	"_IO_read_end": {
+		"type": Pointer[Char],
+		"value": None
+	},
+	"_IO_read_base": {
+		"type": Pointer[Char],
+		"value": None
+	},
+	"_IO_write_base": {
+		"type": Pointer[Char],
+		"value": None
+	},
+	"_IO_write_ptr": {
+		"type": Pointer[Char],
+		"value": None
+	},
+	"_IO_write_end": {
+		"type": Pointer[Char],
+		"value": None
+	},
+	"_IO_buf_base": {
+		"type": Pointer[Char],
+		"value": None
+	},
+	"_IO_buf_end": {
+		"type": Pointer[Char],
+		"value": None
+	},
+	"_IO_save_base": {
+		"type": Pointer[Char],
+		"value": None
+	},
+	"_IO_backup_base": {
+		"type": Pointer[Char],
+		"value": None
+	},
+	"_fileno": {
+		"type": Int,
+		"value": None
+	},
+	"_flags2": {
+		"type": Int,
+		"value": None
+	},
+	"_cur_column": {
+		"type": Short,
+		"value": None
+	},
+	"_vtable_offset": {
+		"type": Char,
+		"value": None
+	},
+	"_shortbuf": {
+		"type": Char,
+		"value": None
+	},
+	"_lock": {
+		"type": Pointer[Void],
+		"value": None
+	},
+	"__pad1": {
+		"type": Pointer[Void],
+		"value": None
+	},
+	"__pad2": {
+		"type": Pointer[Void],
+		"value": None
+	},
+	"__pad3": {
+		"type": Pointer[Void],
+		"value": None
+	},
+	"__pad3": {
+		"type": Pointer[Void],
+		"value": None
+	},
+	"__pad4": {
+		"type": Pointer[Void],
+		"value": None
+	},
+	"__pad5": {
+		"type": Size_t,
+		"value": None
+	},
+	"_mode": {
+		"type": Int,
+		"value": None
+	}
+}
+
+_IO_FILE = Struct[_IO_FILE_STRUCT] # struct _IO_FILE {...};
+FILE = _IO_FILE # typedef _IO_FILE FILE;
+
+# Macros for _flags
+_IO_MAGIC = 0xFBAD0000
+_IO_UNBUFFERED = 0x0002
+_IO_LINE_BUF = 0x0004
+_IO_NO_READS = 0x0008
+_IO_NO_WRITES = 0x0010
+_IO_EOF_SEEN = 0x0020
+_IO_ERR_SEEN = 0x0040
+_IO_DELETE_DONT_CLOSE = 0x0080
+_IO_LINKED = 0x0100
+_IO_IN_BACKUP = 0x0200
+_IO_LINE_BUF_MODE = 0x0400
+_IO_TIED_PUT_GET = 0x0800
+_IO_CURRENTLY_PUTTING = 0x1000
+_IO_IS_APPENDING = 0x2000
+_IO_IS_FILEBUF = 0x4000
+
+# Macros for _flags2
+_IO_FLAGS2_MMAP = 0x0001
+_IO_FLAGS2_NOTCANCEL = 0x0002
+_IO_FLAGS2_USER_WBUF = 0x0004
+_IO_FLAGS2_USER_RBUF = 0x0008
+_IO_FLAGS2_NOCLOSE = 0x0010
+
+# Funcs (File)
+def fopen(path:CHAR_PTR, mode:CHAR_PTR) -> Pointer(FILE):
+	"""Opens a file"""
+	data = b""
+	
+	mode = get_string(mode).lower()
+	path = get_string(path)
+	
+	with open(path, mode) as f:
+		f.seek(0)
+		data = f.read()
+		
+	out = Struct(_IO_FILE_STRUCT)
+	
+	# parsed mode for _flags
+	pmode = _IO_MAGIC
+	
+	if 'r' in mode and '+' not in mode:
+		pmode |= _IO_NO_WRITES
+	elif 'w' in mode and '+' not in mode:
+		pmode |= _IO_NO_READS
+	elif 'a' in mode and '+' not in mode:
+		pmode |= _IO_NO_READS
+		pmode |= _IO_IS_APPENDING
+		
+	if '+' in mode:
+		pass # full read-write access
+		
+	#append
+	if 'a' in mode:
+		pmode |= _IO_IS_APPENDING
+	
+	if 'b' in mode:
+		pass # binary -> default buffering
+		pmode |= _IO_LINE_BUF # Text mode -> Line Buffered
+	elif 't' in mode:
+	
+	out.set("_flags", Int(pmode))
+	
+	return Pointer(Struct, out)

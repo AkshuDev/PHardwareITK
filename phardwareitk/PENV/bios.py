@@ -19,7 +19,7 @@ from phardwareitk.PENV import PBFS
 SystemData: dict = {}
 drive_data: dict = {}
 
-DRIVE_PATH = os.path.join(base_path, ".hard_disk")
+DRIVE_PATH = os.path.join(base_path, "drive.pbfs")
 
 # Get System Info
 def GetSystemInfoBIOS() -> None:
