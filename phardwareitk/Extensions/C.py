@@ -1,24 +1,43 @@
 """This file includes all classes to write Basic 'C' Code inside Python without the need of Cython."""
 from typing import *
 import sys
+import os
 
-# Constants
+MODULE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+
+if not MODULE_DIR in sys.path:
+	sys.path.append(MODULE_DIR)
+
+# We need memory to work
+from Memory import Memory as mem
+
+# Basic Macros
 NULL = 0
+UNINITIALIZED: bytes = b"\xFF"
+
 FALSE = 0
 TRUE = 1
 
 EXIT_SUCCESS = 0
 EXIT_FALUIRE = 1
 
-# Maps for handling Memory and such because Python doesn't let you derefernece a pointer and has wierd management for memory
-# The base (uint64_t)
-BASE: int = 0x600000000000 # High enough to avoid kernel, common for heap/mmap in linux, leavs plenty of space below for code, stack, and libs
-global next_alloc
+METADATA_MAGIC: bytes = int(0xF7F0FAF3).to_bytes(4, 'little')
+
+BASE = 0x0
 
 next_alloc = BASE
-MEMORY_MAP: dict = {}
-FREE_LIST: list = []
-ALLOC_TABLE: dict = {}
+
+size = 64
+memory = mem.Memory(64, 0, None, False, 0) # Defaults to 64 bytes as size
+
+FREE_ADDR = {}
+
+def reset_mem(size_:int) -> None:
+	"""Resets the memory but updates its size"""
+	global memory
+	global size
+	size = size_
+	memory = mem.Memory(size, 0, None, False, 0)
 
 def get_next_alloc() -> int:
     global next_alloc
@@ -30,50 +49,60 @@ def set_next_alloc(value:int) -> None:
 
 def append_next_alloc(value:int) -> None:
 	global next_alloc
-	next_alloc += value
+	next_alloc += value + 8 # 8 bytes for metadata
 
 def align(address:int, alignment:int) -> int: # To align to a specific address in memory
     if address % alignment == 0:
         return address
     return address + (alignment - (address % alignment))
 
-def full_delete(objects:list[object]) -> None:
-	"""Deletes all objects in a list"""
-	for obj in objects:
-		# Remove them from the memory map
-		MEMORY_MAP[obj.address].__del__()
+def full_delete() -> None:
+	"""Deletes everything from memory"""
+	global size
+	reset_mem(size)
 
-def del_mem(addr:int) -> None:
-	"""Deletes a memory block"""
-	try:
-		MEMORY_MAP[addr].__del__()
-	except Exception as e:
-		return None
+def del_mem(addr:int, size:int) -> None:
+	"""NULLS/frees the specified memory block for the specified size"""
+	global memory
+	memory.write_ram(b'\x00', addr, size)
+	FREE_ADDR[addr] = size
+	
+def get_memory() -> mem.Memory:
+	global memory
+	return memory
 
-def get_mem(addr:int) -> object:
-	obj = None
+def set_mem(addr:int, size:int, data:bytes) -> None:
+	"""Sets memory to specfied data"""
+	global memory
+	memory.write_ram(METADATA_MAGIC + size.to_bytes(4, 'little'))
+	memory.write_ram(data, addr + 8, size)
 	
-	try:
-		obj = MEMORY_MAP[addr]
-	except Exception:
-		return None
-	
-	return obj
+	if addr in list(FREE_ADDR.keys()):
+		FREE_ADDR.pop(addr)
 
-def set_mem(addr:int, obj:object) -> None:
-	"""Sets a obj to a memory address"""
-	size = 4 # Default int
+def get_mem(addr:int, size:int) -> bytes:
+	"""Gets memory"""
+	global memory
+	return memory.get_ram(size, addr)
+
+def get_mem_size() -> int:
+	global size
+	return size
+
+def metadata_verify(data:bytes) -> int:
+	if not data == METADATA_MAGIC:
+		return 1
+		
+	return 0
+
+def get_size_metadata(addr:int) -> int:
+	data = get_mem(addr, 8)
 	
-	if isinstance(obj, int):
-		raise Exception("Sorry can't use Python int here, please use proper C.py int")
-	elif isinstance(obj, str):
-		raise Exception("Sorry can't use Python string here, please use proper C.py string")
-	elif isinstance(obj, bytes):
-		raise Exception("Sorry can't use Python bytes here, use Uint[Size in bits you want_t")
-	else:
-		size = obj.size
-	ALLOC_TABLE[addr] = size
-	MEMORY_MAP[addr] = obj
+	magic = data[0:4]
+	if not metadata_verify(magic) == 0:
+		raise OSError("Falsly mapped data in memory")
+	
+	return data[4:8]
 
 # Variables, and types
 # The most basic needs
@@ -109,12 +138,12 @@ class Uint8_t:
 			raise TypeError("Value exceeds 8 bits or 1 byte")
 
 		self.value = value
+		self.data = value.to_bytes(1, 'little')
 		self.size = 1
 		self.address = align(next_alloc, self.size)
 		append_next_alloc(self.size)
 
-		MEMORY_MAP[self.address] = self
-		ALLOC_TABLE[self.address] = self.size
+		set_mem(self.address, self.size, self.data)
 
 		self.deleted = False
 
@@ -125,9 +154,7 @@ class Uint8_t:
 		if self.deleted:
 			return
 
-		FREE_LIST.append((self.address, self.size))
-		MEMORY_MAP.pop(self.address)
-		ALLOC_TABLE.pop(self.address)
+		del_mem(self.address, self.size)
 
 		self.deleted = True
 
@@ -148,12 +175,13 @@ class Uint16_t:
 			raise TypeError("Value Exceeds 16 bits or 2 bytes")
 
 		self.value = value
+		self.data = value.to_bytes(2, 'little')
 		self.size = 2
 		self.address = align(next_alloc, self.size)
 		append_next_alloc(self.size)
 
-		MEMORY_MAP[self.address] = self
-		ALLOC_TABLE[self.address] = self.size
+		set_mem(self.address, self.size, self.data)
+		
 		self.deleted = False
 
 	def __repr__(self) -> str:
@@ -163,9 +191,7 @@ class Uint16_t:
 		if self.deleted:
 			return
 
-		FREE_LIST.append((self.address, self.size))
-		MEMORY_MAP.pop(self.address)
-		ALLOC_TABLE.pop(self.address)
+		del_mem(self.address, self.size)
 
 		self.deleted = True
 
@@ -186,12 +212,12 @@ class Uint32_t:
 			raise TypeError("Value Exceeds 32 bits or 4 bytes")
 
 		self.value = value
+		self.data = value.to_bytes(4, 'little')
 		self.size = 4
 		self.address = align(next_alloc, self.size)
 		append_next_alloc(self.size)
 
-		MEMORY_MAP[self.address] = self
-		ALLOC_TABLE[self.address] = self.size
+		set_mem(self.address, self.size, self.data)
 
 		self.deleted = False
 
@@ -202,9 +228,7 @@ class Uint32_t:
 		if self.deleted:
 			return
 
-		FREE_LIST.append((self.address, self.size))
-		MEMORY_MAP.pop(self.address)
-		ALLOC_TABLE.pop(self.address)
+		del_mem(self.address, self.size)
 
 		self.deleted = True
 
@@ -225,12 +249,12 @@ class Uint64_t:
 			raise TypeError("Value Exceeds 64 bits or 8 bytes")
 
 		self.value = value
+		self.data = value.to_bytes(8, 'little')
 		self.size = 8
 		self.address = align(next_alloc, self.size)
 		append_next_alloc(self.size)
 
-		MEMORY_MAP[self.address] = self
-		ALLOC_TABLE[self.address] = self.size
+		set_mem(self.address, self.size, self.data)
 
 		self.deleted = False
 
@@ -241,9 +265,7 @@ class Uint64_t:
 		if self.deleted:
 			return
 
-		FREE_LIST.append((self.address, self.size))
-		MEMORY_MAP.pop(self.address)
-		ALLOC_TABLE.pop(self.address)
+		del_mem(self.address, self.size)
 
 		self.deleted = True
 
@@ -295,24 +317,26 @@ class Char(Uint8_t):
 
 def get_string(address:Uint64_t) -> str:
 	"""Returns a string from an	memory address"""
-	string = ""
+	string = b""
 	addr = address.value
+	caddr = addr # current addr
+	size = get_mem_size()
+	csize = 1 # Current size (for data)
 
-	if not isinstance(MEMORY_MAP[address.value], Char):
-		return ""
-
-	while True: # Because if we create another Char object it will map itself to memory again
-		if not isinstance(MEMORY_MAP[addr], Char):
+	while True:
+		if caddr > size:
+			return ""
+			
+		string += get_mem(addr, csize)
+		
+		if string[len(string) - 1] == "\0":
 			break
-
-		if not MEMORY_MAP[addr].og_value == '\0':
-			break
-
-		string += MEMORY_MAP[addr].og_value
-		addr += align(addr + 1, MEMORY_MAP[addr].size)
-
-	return string
-
+		
+		csize += 1
+		caddr += 1
+		
+	return str(string)
+		
 # Pointers and void
 class Void:
 	"""void"""
@@ -353,7 +377,16 @@ class Pointer(Uint64_t):
 		if isinstance(self.type, Void):
 			raise TypeError("Cannot dereference a void pointer without casting it to another type.")
 
-		return MEMORY_MAP[self.value]
+		metadata = get_ram(self.pointer_address - 8, 8)
+		
+		magic = metadata[0:4]
+		
+		if not magic == METADATA_MAGIC:
+			raise OSError("Falsly mapped data!")
+			
+		size = int.from_bytes(metadata[4:8], 'little')
+		
+		return get_mem(self.pointer_address, size)
 
 	def cast(self, type:object) -> None:
 		"""Casts a pointer to another type"""
@@ -380,14 +413,14 @@ class Pointer(Uint64_t):
 		return TypedPointer
 
 # String creation
-def string(value:str) -> Pointer[Char]:
+def make_string(value:str) -> Pointer[Char]:
 	"""Makes a char*"""
 
 	if not isinstance(value, str):
 		raise TypeError("Value must be a [str]")
 
-	if not value.endswith('\0'):
-		value += '\0'
+	if not value.endswith('\x00\x00'):
+		value += '\x00\x00'
 
 	# Make a list of Char
 	string = []
@@ -396,7 +429,7 @@ def string(value:str) -> Pointer[Char]:
 
 	return Pointer(Char, string[0]) # char* is basically the pointer to the first char in a string
 
-CHAR_PTR = Pointer[Char];
+CHAR_PTR = Pointer[Char]
 
 # Arrays
 class Array:
@@ -454,49 +487,155 @@ def sizeof(value:object) -> Size_t:
 		return Size_t(value.size)
 
 # Funcs (Memory)
-def malloc(size:Size_t) -> Pointer[Void]:
-	for i, (addr, block_size) in enumerate(FREE_LIST):
-		if block_size >= size.bytes: # We found a free block
-			FREE_LIST.pop(i)
-			ALLOC_TABLE[addr] = size.bytes # Update size of the block
-			MEMORY_MAP[addr] = Void()
+def malloc(size:Union[int, Size_t]) -> Pointer[Void]:
+	"""Allocate memory"""
+	if isinstance(size, Size_t):
+		size = size.bytes
+	
+	if not isinstance(size, int):
+		raise TypeError("Size is not a Size_t or a int.")
+	
+	for addr, sz in FREE_ADDR.items():
+		if block_size >= sz: # We found a free block
+			FREE_LIST.pop(i) # We don't set the memory because C malloc doesn't either.
 			return Pointer(Void, addr)
 
 	# ELSE
 	addr = next_alloc
-	MEMORY_MAP[addr] = Void()
-	ALLOC_TABLE[addr] = size.bytes
-	append_next_alloc(size.bytes)
+	append_next_alloc(size)
 	return Pointer(Void, addr)
 
 def free(ptr:Pointer[Void]) -> int:
 	"""Free memory (doesn't delete pointer)"""
 	addr = ptr.pointer_address
-
-	if addr in list(MEMORY_MAP.keys()):
-		try:
-			FREE_LIST.append((addr, ALLOC_TABLE[addr]))
-			ALLOC_TABLE.pop(addr)
-			MEMORY_MAP.pop(addr)
-		except KeyError:
-			return -1 # Memory already freed
-		return 0
+	size = get_mem_size()
+	
+	if addr > size:
+		raise OSError("Trying to access memory outside of the virtual memory space. [ERROR:PHardwareITK:Extensions:C - free]")
+		
+	metadata = get_mem(addr - 8, 8) # Get metadata
+	if metadata[0:4] == METADATA_MAGIC:
+		size = metadata[4:8]
 	else:
-		return -4
+		raise OSError("Provided Address is not mapped to memory. [ERROR:PHardwareITK:Extensions:C:free]")
+	
+	size = int.from_bytes(size, 'little')
+	
+	set_mem(addr, size, UNINITIALIZED*size)
+	
+	FREE_ADDR[addr] = size
+	
+	return 0
 
-def calloc(nmemb:Size_t, size:Size_t) -> Pointer[Void]:
+def calloc(nmemb:Union[int, Size_t], size:Union[int, Size_t]) -> Pointer[Void]:
 	"""Allocate memory and set all values to 0"""
-	total_size = nmemb.bytes * size.bytes
+	if isinstance(nmemb, Size_t):
+		nmemb = nmemb.bytes
+	if isinstance(size, Size_t):
+		size = size.bytes
+		
+	if not isinstance(nmemb, int):
+		raise TypeError("Error nmemb is not a Size_t or a int")
+	elif not isinstance(size, int):
+		raise TypeError("Error size is not a Size_t or a int")
+		
+	total_size = nmemb * size
 
-	return malloc(Size_t(total_size))
+	return malloc(total_size)
 
-def realloc(ptr:Pointer[Void], size:Size_t) -> Pointer[Void]:
+def realloc(ptr:Pointer[Void], size:Union[int, Size_t]) -> Pointer[Void]:
 	"""Reallocate memory with new size"""
 	# Free old memory
 	free(ptr)
 
 	# Allocate new memory
 	return malloc(size)
+
+def memcpy(dest: Pointer[Void], src: Pointer[Void], size: Union[int, Size_t]) -> Pointer[Void]:
+	"""Copies [size] bytes from src to dest"""
+	addr_dest = dest.pointer_address
+	addr_src = src.pointer_address
+	
+	if isinstance(size, Size_t):
+		size = size.bytes
+		
+	if not isinstance(size, int):
+		raise TypeError("Argument size must be a Size_t or a int")
+		
+	data = get_mem(addr_src, size)
+	set_mem(addr_dest, size, data)
+	return Pointer(Void, addr_dest)
+	
+def memmove(dest:Pointer[Void], src:Pointer[Void], size:Union[int, Size_t]) -> Pointer[Void]:
+	"""Moves [size] bytes from src to dest"""
+	addr_src = src.pointer_address
+	
+	if isinstance(size, Size_t):
+		size = size.bytes
+		
+	if not isinstance(size, int):
+		raise TypeError("Argument size must be a Size_t or a int")
+		
+	memcpy(dest, src, size)
+	set_mem(addr_src, size, UNINITIALIZED*size)
+	
+	return Pointer(Void, addr_dest)
+
+def memset(ptr:Pointer[Void], value:int, size:Union[int, Size_t]) -> Pointer[Void]:
+	"""Sets [size] number of bytes of memory pointed to by [ptr] to the byte value [value]"""
+	if isinstance(size, Size_t):
+		size = size.bytes
+		
+	if not isinstance(size, int):
+		raise TypeError("Argument size must be a Size_t or a int")
+		
+	value = value.to_bytes(1, 'little')
+	val = value * size
+	
+	set_mem(ptr.pointer_address, size, val)
+	
+	return ptr
+	
+def memchr(ptr:Pointer[Void], value:int, size:Union[int, Size_t]) -> Pointer[Void]:
+	"""Finds the needed byte in memory"""
+	addr = ptr.pointer_address
+	cbyte = 0 # current addr
+	searched_bytes = 0
+	
+	if isinstance(size, Size_t):
+		size = size.bytes
+		
+	if not isinstance(size, int):
+		raise TypeError("Argument size must be a Size_t or a int")
+		
+	data = get_mem(addr, size)
+	
+	value = value.to_bytes(1, 'little')
+		
+	while True:
+		if searched_bytes > size:
+			return None
+			
+		if data[cbyte] == value:
+			return Pointer(Void, addr + cbyte)
+
+def memcmp(ptr1:Pointer[Void], ptr2:Pointer[Void], size:Union[int, Size_t]) -> int:
+	"""Compares two data in memory"""
+	if isinstance(size, Size_t):
+		size = size.bytes
+		
+	if not isinstance(size, int):
+		raise TypeError("Argument size must be a Size_t or a int")
+		
+	addr1 = ptr1.pointer_address
+	addr2 = ptr2.pointer_address
+	data1 = get_mem(addr1, size)
+	data2 = get_mem(addr2, size)
+	
+	if data1 == data2:
+		return 0
+	else:
+		return 1
 
 # Structs
 class Struct:
@@ -596,6 +735,8 @@ class Struct:
 				# We are assuming anything
 				field_value = field_type()
 
+			field_value = field_value.data
+
 			self.set(name, field_value)
 
 			index += field_size
@@ -614,14 +755,14 @@ class Struct:
 		
 		for name, value in self.structure.items():
 			if value['value'] == None:
-				val = Int(NULL)
+				val = UNINITIALIZED
 			
-				set_mem(addr, val)
+				set_mem(addr, val, value['type'].size)
 			
-				addr += val.size
-				next_alloc += val.size
+				addr += value['type'].size
+				next_alloc += value['type'].size
 				
-			set_mem(addr, value['value'])
+			set_mem(addr, value['type'].size, value['value'])
 			
 			addr += value['value'].size
 			next_alloc += value['value'].size
@@ -648,135 +789,7 @@ class Struct:
 		
 		return TypedStruct
 
-# _IO_FILE
-_IO_FILE_STRUCT = {
-	"_flags": {
-		"type": Int,
-		"value": None
-	},
-	"_IO_read_ptr": {
-		"type": Pointer[Char],
-		"value": None
-	},
-	"_IO_read_end": {
-		"type": Pointer[Char],
-		"value": None
-	},
-	"_IO_read_base": {
-		"type": Pointer[Char],
-		"value": None
-	},
-	"_IO_write_base": {
-		"type": Pointer[Char],
-		"value": None
-	},
-	"_IO_write_ptr": {
-		"type": Pointer[Char],
-		"value": None
-	},
-	"_IO_write_end": {
-		"type": Pointer[Char],
-		"value": None
-	},
-	"_IO_buf_base": {
-		"type": Pointer[Char],
-		"value": None
-	},
-	"_IO_buf_end": {
-		"type": Pointer[Char],
-		"value": None
-	},
-	"_IO_save_base": {
-		"type": Pointer[Char],
-		"value": None
-	},
-	"_IO_backup_base": {
-		"type": Pointer[Char],
-		"value": None
-	},
-	"_fileno": {
-		"type": Int,
-		"value": None
-	},
-	"_flags2": {
-		"type": Int,
-		"value": None
-	},
-	"_cur_column": {
-		"type": Short,
-		"value": None
-	},
-	"_vtable_offset": {
-		"type": Char,
-		"value": None
-	},
-	"_shortbuf": {
-		"type": Char,
-		"value": None
-	},
-	"_lock": {
-		"type": Pointer[Void],
-		"value": None
-	},
-	"__pad1": {
-		"type": Pointer[Void],
-		"value": None
-	},
-	"__pad2": {
-		"type": Pointer[Void],
-		"value": None
-	},
-	"__pad3": {
-		"type": Pointer[Void],
-		"value": None
-	},
-	"__pad3": {
-		"type": Pointer[Void],
-		"value": None
-	},
-	"__pad4": {
-		"type": Pointer[Void],
-		"value": None
-	},
-	"__pad5": {
-		"type": Size_t,
-		"value": None
-	},
-	"_mode": {
-		"type": Int,
-		"value": None
-	}
-}
 
-_IO_FILE = Struct[_IO_FILE_STRUCT] # struct _IO_FILE {...};
-FILE = _IO_FILE # typedef _IO_FILE FILE;
-
-# Macros for _flags
-_IO_MAGIC = 0xFBAD0000
-_IO_UNBUFFERED = 0x0002
-_IO_LINE_BUF = 0x0004
-_IO_NO_READS = 0x0008
-_IO_NO_WRITES = 0x0010
-_IO_EOF_SEEN = 0x0020
-_IO_ERR_SEEN = 0x0040
-_IO_DELETE_DONT_CLOSE = 0x0080
-_IO_LINKED = 0x0100
-_IO_IN_BACKUP = 0x0200
-_IO_LINE_BUF_MODE = 0x0400
-_IO_TIED_PUT_GET = 0x0800
-_IO_CURRENTLY_PUTTING = 0x1000
-_IO_IS_APPENDING = 0x2000
-_IO_IS_FILEBUF = 0x4000
-
-# Macros for _flags2
-_IO_FLAGS2_MMAP = 0x0001
-_IO_FLAGS2_NOTCANCEL = 0x0002
-_IO_FLAGS2_USER_WBUF = 0x0004
-_IO_FLAGS2_USER_RBUF = 0x0008
-_IO_FLAGS2_NOCLOSE = 0x0010
-
-# Funcs (File)
-def fopen(path:CHAR_PTR, mode:CHAR_PTR) -> Pointer(FILE):
 	"""Opens a file"""
 	data = b""
 	

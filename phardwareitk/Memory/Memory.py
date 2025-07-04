@@ -70,7 +70,7 @@ class Memory:
 
     Rest of the Memory -> User-Defined (Open)
     """
-    def __init__(self, size:int, proc_sector_size:int=64, Block:list[MemBlock]=None, debug:bool=False) -> None:
+    def __init__(self, size:int, proc_sector_size:int=64, Block:list[MemBlock]=None, debug:bool=False, system_size:int=64) -> None:
         """Initialization function.
         NOTE: RAM in this class refers to a part of mapped RAM known as Virtual Memory that every program has.
 
@@ -79,7 +79,7 @@ class Memory:
             proc_sector_size (int): The size of RAM dedicated to processes in bytes. Defaults to 64.
             Block (list[MemBlock]): The protected regions if any. Defaults to None.
         """
-        self.size:int = size + 64 + proc_sector_size# Size + System Size + Process Sector Size
+        self.size:int = size + system_size + proc_sector_size# Size + System Size + Process Sector Size
         self.ram:bytearray = bytearray(size)
         self.current_addr:int = 0x0
         self.mem_blocks:list[MemBlock] = Block
