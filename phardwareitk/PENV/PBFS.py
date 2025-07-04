@@ -8,15 +8,16 @@ MPATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 
 if not MPATH in sys.path:
 	sys.path.append(MPATH)
-	
+
 from Extensions.C import *
+from Extensions.C_IO import *
 
 PBFS_HEADER = {
 	"Magic": {
 		"type": Array[Char, 6],
 		"value": None
 	},
-	
+
 	"Block_Size": {
 		"type": Uint32_t,
 		"value": None
@@ -79,7 +80,7 @@ PBFS_FILE_TABLE_ENTRY = {
 	},
 	"Block_Span": {
 		"type": Uint64_t,
-		"value"
+		"value": None
 	}
 }
 
@@ -143,7 +144,7 @@ PBFS_PERMISSION_TABLE_ENTRY = {
 
 PBFS_FILE_TREE_ENTRY = {
 	"Name": {
-		"type": Array[Char, 20]
+		"type": Array[Char, 20],
 		"value": None
 	}
 }
@@ -323,7 +324,7 @@ DRIVE_PARAMETERS = {
 
 PBFS_FILE_LIST_ENTRY = {
 	"Name": {
-		"type": Pointer[Char]
+		"type": Pointer[Char],
 		"value": None
 	},
 	"lba": {
@@ -340,10 +341,9 @@ PBFS_FILE_LIST_ENTRY = {
 def format_disk(path:str, total_blocks:int=2048, block_size:int=512, disk_name:bytes=b'SSD-PBFS-VIRTUAL') -> int:
 	if not os.path.exists(path):
 		return -1
-		
-	with open(path, "wb") as f:
-		f.write(b'\x00' * (total_blocks * block_size))
-	
+
+	file:Pointer[FILE] = fopen(path, "wb")
+
 	# Now we format it
 	PBFS_Header = Struct(PBFS_HEADER)
 	PBFS_Header.set("Magic", Array(Char, 6).fill(b"PBFS\0\0"))
@@ -353,9 +353,22 @@ def format_disk(path:str, total_blocks:int=2048, block_size:int=512, disk_name:b
 	PBFS_Header.set("Timestamp", Uint64_t(int(time.time())))
 	PBFS_Header.set("Version", Uint32_t(1))
 	PBFS_Header.set("Entries", Uint32_t(0))
-	
-	lba1_buff = malloc(Size_t(block_size))
-	
+
+	lba1_buff = malloc(block_size)
+
 	PBFS_Header.write_b(lba1_buff)
-	
-	
+
+	fwrite(lba1_buff, block_size, 1, file)
+
+	free(lba1_buff)
+	# Now we write the bitmap
+	lba2_buff = malloc((1 / 8) * total_blocks)
+	memset(lba2_buff, 0, ((1 / 8) * total_blocks))
+
+	fwrite(lba2_buff, (1 / 8) * total_blocks, 1, file)
+
+	free(lba2_buff)
+
+	fclose(file)
+
+	return 0

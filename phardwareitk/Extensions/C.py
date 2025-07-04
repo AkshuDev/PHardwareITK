@@ -13,7 +13,7 @@ from Memory import Memory as mem
 
 # Basic Macros
 NULL = 0
-UNINITIALIZED: bytes = b"\xFF"
+UNINITIALIZED: bytes = b'\xFF'
 
 FALSE = 0
 TRUE = 1
@@ -34,56 +34,71 @@ FREE_ADDR = {}
 
 def reset_mem(size_:int) -> None:
 	"""Resets the memory but updates its size"""
-	global memory
 	global size
+	global memory
 	size = size_
 	memory = mem.Memory(size, 0, None, False, 0)
 
 def get_next_alloc() -> int:
-    global next_alloc
-    return next_alloc
+	global next_alloc
+	return next_alloc
 
 def set_next_alloc(value:int) -> None:
-    global next_alloc
-    next_alloc = value
+	global next_alloc
+	next_alloc = value
 
 def append_next_alloc(value:int) -> None:
 	global next_alloc
 	next_alloc += value + 8 # 8 bytes for metadata
 
 def align(address:int, alignment:int) -> int: # To align to a specific address in memory
-    if address % alignment == 0:
-        return address
-    return address + (alignment - (address % alignment))
+	if address % alignment == 0:
+		return address
+	return address + (alignment - (address % alignment))
 
 def full_delete() -> None:
 	"""Deletes everything from memory"""
 	global size
 	reset_mem(size)
 
-def del_mem(addr:int, size:int) -> None:
+def del_mem(addr:int, size_:int) -> None:
 	"""NULLS/frees the specified memory block for the specified size"""
 	global memory
-	memory.write_ram(b'\x00', addr, size)
-	FREE_ADDR[addr] = size
-	
+	global size
+
+	if addr > size:
+		raise OSError("Trying to access memory outside of the virtual memory space. [ERROR:PHardwareITK:Extensions:C - del_mem]")
+
+	memory.write_ram(b'\x00', addr, size_)
+	FREE_ADDR[addr] = size_
+
 def get_memory() -> mem.Memory:
 	global memory
 	return memory
 
-def set_mem(addr:int, size:int, data:bytes) -> None:
+def set_mem(addr:int, size_:int, data:bytes) -> None:
 	"""Sets memory to specfied data"""
+	global size
 	global memory
-	memory.write_ram(METADATA_MAGIC + size.to_bytes(4, 'little'))
-	memory.write_ram(data, addr + 8, size)
-	
+
+	if addr > size:
+		raise OSError("Trying to access memory outside of the virtual memory space. [ERROR:PHardwareITK:Extensions:C - set_mem]")
+
+	memory.write_ram(METADATA_MAGIC + size_.to_bytes(4, 'little'), addr - 8, 8)
+	memory.write_ram(data, addr, size_)
+
 	if addr in list(FREE_ADDR.keys()):
 		FREE_ADDR.pop(addr)
 
-def get_mem(addr:int, size:int) -> bytes:
+def get_mem(addr:int, size_:int) -> bytes:
 	"""Gets memory"""
 	global memory
-	return memory.get_ram(size, addr)
+	global size
+
+	if addr > size:
+		raise OSError("Trying to access memory outside of the virtual memory space. [ERROR:PHardwareITK:Extensions:C - get_mem]")
+
+	return memory.get_ram(size_, addr)
 
 def get_mem_size() -> int:
 	global size
@@ -92,17 +107,17 @@ def get_mem_size() -> int:
 def metadata_verify(data:bytes) -> int:
 	if not data == METADATA_MAGIC:
 		return 1
-		
+
 	return 0
 
 def get_size_metadata(addr:int) -> int:
-	data = get_mem(addr, 8)
-	
+	data: bytes = get_mem(addr, 8)
+
 	magic = data[0:4]
 	if not metadata_verify(magic) == 0:
 		raise OSError("Falsly mapped data in memory")
-	
-	return data[4:8]
+
+	return int.from_bytes(data[4:8], 'little')
 
 # Variables, and types
 # The most basic needs
@@ -122,6 +137,8 @@ class Size_t:
 		return f"{self.bytes}"
 
 class Uint8_t:
+	size = 1
+
 	"""uint8_t"""
 	def __init__(self, value:int=0) -> None:
 		self.og_value = value
@@ -151,6 +168,9 @@ class Uint8_t:
 		return f"{self.og_value}"
 
 	def __del__(self) -> None:
+		if getattr(sys, 'meta_path', None) is None:
+			return  # Interpreter is shutting down; skip cleanup
+
 		if self.deleted:
 			return
 
@@ -159,6 +179,8 @@ class Uint8_t:
 		self.deleted = True
 
 class Uint16_t:
+	size = 2
+
 	"""uint16_t"""
 	def __init__(self, value:int=0) -> None:
 		self.og_value = value
@@ -181,13 +203,16 @@ class Uint16_t:
 		append_next_alloc(self.size)
 
 		set_mem(self.address, self.size, self.data)
-		
+
 		self.deleted = False
 
 	def __repr__(self) -> str:
 		return f"{self.og_value}"
 
 	def __del__(self) -> None:
+		if getattr(sys, 'meta_path', None) is None:
+			return  # Interpreter is shutting down; skip cleanup
+
 		if self.deleted:
 			return
 
@@ -196,6 +221,8 @@ class Uint16_t:
 		self.deleted = True
 
 class Uint32_t:
+	size = 4
+
 	"""uint32_t"""
 	def __init__(self, value:int=0) -> None:
 		self.og_value = value
@@ -225,6 +252,9 @@ class Uint32_t:
 		return f"{self.og_value}"
 
 	def __del__(self) -> None:
+		if getattr(sys, 'meta_path', None) is None:
+			return  # Interpreter is shutting down; skip cleanup
+
 		if self.deleted:
 			return
 
@@ -233,6 +263,8 @@ class Uint32_t:
 		self.deleted = True
 
 class Uint64_t:
+	size = 8
+
 	"""uint64_t"""
 	def __init__(self, value:int=0) -> None:
 		self.og_value = value
@@ -262,6 +294,9 @@ class Uint64_t:
 		return f"{self.og_value}"
 
 	def __del__(self) -> None:
+		if getattr(sys, 'meta_path', None) is None:
+			return  # Interpreter is shutting down; skip cleanup
+
 		if self.deleted:
 			return
 
@@ -315,28 +350,6 @@ class Char(Uint8_t):
 	def __del__(self) -> None:
 		super().__del__()
 
-def get_string(address:Uint64_t) -> str:
-	"""Returns a string from an	memory address"""
-	string = b""
-	addr = address.value
-	caddr = addr # current addr
-	size = get_mem_size()
-	csize = 1 # Current size (for data)
-
-	while True:
-		if caddr > size:
-			return ""
-			
-		string += get_mem(addr, csize)
-		
-		if string[len(string) - 1] == "\0":
-			break
-		
-		csize += 1
-		caddr += 1
-		
-	return str(string)
-		
 # Pointers and void
 class Void:
 	"""void"""
@@ -351,14 +364,14 @@ class Void:
 class Pointer(Uint64_t):
 	"""*<value>"""
 
-	def __init__(self, type:Void, object:object=None) -> None:
+	def __init__(self, type:object=Void, object:object=Void(), save:bool=False) -> None:
 		self.type = type
 		self.pointer_address = object
 
 		if object == NULL:
 			self.pointer_address = NULL
 
-		if object == None:
+		if object is None:
 			self.pointer_address = NULL
 
 		if isinstance(object, int):
@@ -367,8 +380,14 @@ class Pointer(Uint64_t):
 			raise TypeError("Cannot create a pointer to a string (python)")
 		elif isinstance(object, bytes):
 			raise TypeError("Cannot create a pointer to bytes (python)")
-		else:
+		elif object is not None:
 			self.pointer_address = object.address # A C.py file object
+
+		self.obj = None
+		self.save = save
+
+		if save:
+			self.obj = object
 
 		super().__init__(self.pointer_address)
 		# Don't Map * to memory
@@ -377,57 +396,48 @@ class Pointer(Uint64_t):
 		if isinstance(self.type, Void):
 			raise TypeError("Cannot dereference a void pointer without casting it to another type.")
 
-		metadata = get_ram(self.pointer_address - 8, 8)
-		
-		magic = metadata[0:4]
-		
-		if not magic == METADATA_MAGIC:
-			raise OSError("Falsly mapped data!")
-			
-		size = int.from_bytes(metadata[4:8], 'little')
-		
-		return get_mem(self.pointer_address, size)
+		if self.save:
+			if self.obj is not None:
+				return self.obj
+
+		size = get_size_metadata(self.pointer_address - 8)
+
+		data = get_mem(self.pointer_address, size)
+
+		return data
 
 	def cast(self, type:object) -> None:
 		"""Casts a pointer to another type"""
 		self.type = type
 
 	def __repr__(self) -> str:
-		if isinstance(self.type, Char):
-			return f"{get_string(Uint64_t(self.value))}"
-		else:
-			return super().__repr__()
+		return f"{self.pointer_address.to_bytes(8, 'little').hex()}"
 
 	def __del__(self) -> None:
 		super().__del__()
 
 	@classmethod
-	def __class_getitem__(cls, type_):
-		class TypedPointer(cls):
-			self.__type__ = type_
-			self.save = cls
-			
-			def __new__(cls_, *args, **kwargs):
-				return self.save
-		
+	def __class_getitem__(cls, type_:object=Void, object_:object=None):
+		class TypedPointer:
+			size = 8
+			object = object_
+			type = type_
+			def __new__(cls_, type:Void, object=None):
+				return cls(type, object)
+
 		return TypedPointer
 
-# String creation
-def make_string(value:str) -> Pointer[Char]:
-	"""Makes a char*"""
+# String access
 
-	if not isinstance(value, str):
-		raise TypeError("Value must be a [str]")
+def get_string(ptr:Pointer[Char]) -> str:
+	"""Returns a string from an	memory address"""
+	string = b""
+	addr = ptr.pointer_address
+	size = get_size_metadata(addr - 8)
 
-	if not value.endswith('\x00\x00'):
-		value += '\x00\x00'
+	string = get_mem(addr, size).removesuffix(b'\x00\x00')  # Remove the null terminators
 
-	# Make a list of Char
-	string = []
-	for c in value:
-		string.append(Char(c))
-
-	return Pointer(Char, string[0]) # char* is basically the pointer to the first char in a string
+	return string.decode('utf-8')
 
 CHAR_PTR = Pointer[Char]
 
@@ -458,21 +468,23 @@ class Array:
 		return string
 
 	def __del__(self) -> None:
+		if getattr(sys, 'meta_path', None) is None:
+				return  # Interpreter is shutting down; skip cleanup
+
 		if self.deleted: return
 		for obj in self.array:
 			obj.__del__()
 
 		self.deleted = True
-	
+
 	@classmethod
-	def __class_getitem__(cls, type_:object, size:int):
-		class TypedArray(cls):
-			self.__type__ = (type_, size)
-			self.save = cls
-			
-			def __new__(cls_, *args, **kwargs):
-				return self.save
-		
+	def __class_getitem__(cls, type_:object=None, size_:int=0):
+		class TypedArray:
+			size = size_
+			type = type_
+			def __new__(cls_, type:object, size:int):
+				return cls(type, size)
+
 		return TypedArray
 
 # Funcs (Basic)
@@ -480,7 +492,7 @@ def sizeof(value:object) -> Size_t:
 	if isinstance(value, int):
 		return Size_t(Int(value).size)
 	elif isinstance(value, str):
-		return Size_t(string(value).size)
+		return Size_t(make_string(value).size)
 	elif isinstance(value, bytes):
 		return Size_t(Uint64_t(value).size)
 	else:
@@ -491,40 +503,37 @@ def malloc(size:Union[int, Size_t]) -> Pointer[Void]:
 	"""Allocate memory"""
 	if isinstance(size, Size_t):
 		size = size.bytes
-	
+
 	if not isinstance(size, int):
 		raise TypeError("Size is not a Size_t or a int.")
-	
+
 	for addr, sz in FREE_ADDR.items():
-		if block_size >= sz: # We found a free block
-			FREE_LIST.pop(i) # We don't set the memory because C malloc doesn't either.
-			return Pointer(Void, addr)
+		if sz >= size + 8: # We found a free block
+			FREE_ADDR.pop(addr) # We don't set the memory because C malloc doesn't either.
+			return Pointer(Void, addr + 8)
 
 	# ELSE
 	addr = next_alloc
-	append_next_alloc(size)
-	return Pointer(Void, addr)
+	append_next_alloc(size + 8)
 
-def free(ptr:Pointer[Void]) -> int:
+	set_mem(addr, 8, METADATA_MAGIC + size.to_bytes(4, 'little')) # Set the metadata, we don't set the memory to unint because c doesnt either
+
+	return Pointer(Void, addr + 8)
+
+def free(ptr:Pointer) -> int:
 	"""Free memory (doesn't delete pointer)"""
 	addr = ptr.pointer_address
 	size = get_mem_size()
-	
+
 	if addr > size:
 		raise OSError("Trying to access memory outside of the virtual memory space. [ERROR:PHardwareITK:Extensions:C - free]")
-		
-	metadata = get_mem(addr - 8, 8) # Get metadata
-	if metadata[0:4] == METADATA_MAGIC:
-		size = metadata[4:8]
-	else:
-		raise OSError("Provided Address is not mapped to memory. [ERROR:PHardwareITK:Extensions:C:free]")
-	
-	size = int.from_bytes(size, 'little')
-	
-	set_mem(addr, size, UNINITIALIZED*size)
-	
+
+	size = get_size_metadata(addr - 8)
+
+	set_mem(addr, size, UNINITIALIZED * size)
+
 	FREE_ADDR[addr] = size
-	
+
 	return 0
 
 def calloc(nmemb:Union[int, Size_t], size:Union[int, Size_t]) -> Pointer[Void]:
@@ -533,12 +542,12 @@ def calloc(nmemb:Union[int, Size_t], size:Union[int, Size_t]) -> Pointer[Void]:
 		nmemb = nmemb.bytes
 	if isinstance(size, Size_t):
 		size = size.bytes
-		
+
 	if not isinstance(nmemb, int):
 		raise TypeError("Error nmemb is not a Size_t or a int")
 	elif not isinstance(size, int):
 		raise TypeError("Error size is not a Size_t or a int")
-		
+
 	total_size = nmemb * size
 
 	return malloc(total_size)
@@ -555,67 +564,67 @@ def memcpy(dest: Pointer[Void], src: Pointer[Void], size: Union[int, Size_t]) ->
 	"""Copies [size] bytes from src to dest"""
 	addr_dest = dest.pointer_address
 	addr_src = src.pointer_address
-	
+
 	if isinstance(size, Size_t):
 		size = size.bytes
-		
+
 	if not isinstance(size, int):
 		raise TypeError("Argument size must be a Size_t or a int")
-		
+
 	data = get_mem(addr_src, size)
 	set_mem(addr_dest, size, data)
 	return Pointer(Void, addr_dest)
-	
+
 def memmove(dest:Pointer[Void], src:Pointer[Void], size:Union[int, Size_t]) -> Pointer[Void]:
 	"""Moves [size] bytes from src to dest"""
 	addr_src = src.pointer_address
-	
+
 	if isinstance(size, Size_t):
 		size = size.bytes
-		
+
 	if not isinstance(size, int):
 		raise TypeError("Argument size must be a Size_t or a int")
-		
+
 	memcpy(dest, src, size)
 	set_mem(addr_src, size, UNINITIALIZED*size)
-	
-	return Pointer(Void, addr_dest)
+
+	return Pointer(Void, dest.pointer_address)
 
 def memset(ptr:Pointer[Void], value:int, size:Union[int, Size_t]) -> Pointer[Void]:
 	"""Sets [size] number of bytes of memory pointed to by [ptr] to the byte value [value]"""
 	if isinstance(size, Size_t):
 		size = size.bytes
-		
+
 	if not isinstance(size, int):
 		raise TypeError("Argument size must be a Size_t or a int")
-		
+
 	value = value.to_bytes(1, 'little')
 	val = value * size
-	
+
 	set_mem(ptr.pointer_address, size, val)
-	
+
 	return ptr
-	
+
 def memchr(ptr:Pointer[Void], value:int, size:Union[int, Size_t]) -> Pointer[Void]:
 	"""Finds the needed byte in memory"""
 	addr = ptr.pointer_address
 	cbyte = 0 # current addr
 	searched_bytes = 0
-	
+
 	if isinstance(size, Size_t):
 		size = size.bytes
-		
+
 	if not isinstance(size, int):
 		raise TypeError("Argument size must be a Size_t or a int")
-		
+
 	data = get_mem(addr, size)
-	
+
 	value = value.to_bytes(1, 'little')
-		
+
 	while True:
 		if searched_bytes > size:
 			return None
-			
+
 		if data[cbyte] == value:
 			return Pointer(Void, addr + cbyte)
 
@@ -623,19 +632,63 @@ def memcmp(ptr1:Pointer[Void], ptr2:Pointer[Void], size:Union[int, Size_t]) -> i
 	"""Compares two data in memory"""
 	if isinstance(size, Size_t):
 		size = size.bytes
-		
+
 	if not isinstance(size, int):
 		raise TypeError("Argument size must be a Size_t or a int")
-		
+
 	addr1 = ptr1.pointer_address
 	addr2 = ptr2.pointer_address
 	data1 = get_mem(addr1, size)
 	data2 = get_mem(addr2, size)
-	
+
 	if data1 == data2:
 		return 0
 	else:
 		return 1
+
+def write(ptr:Pointer[Void], data:bytes, size:Union[int, Size_t]) -> int:
+	"""Writes data to memory"""
+	if isinstance(size, Size_t):
+		size = size.bytes
+
+	if not isinstance(size, int):
+		raise TypeError("Argument size must be a Size_t or a int")
+
+	set_mem(ptr.pointer_address, size, data)
+
+	return 0
+
+def read(ptr:Pointer[Void], size:Union[int, Size_t]) -> bytes:
+	"""Reads data from memory"""
+	if isinstance(size, Size_t):
+		size = size.bytes
+
+	if not isinstance(size, int):
+		raise TypeError("Argument size must be a Size_t or a int")
+
+	addr = ptr.pointer_address
+	data = get_mem(addr, size)
+
+	return data
+
+# String creation
+def make_string(value:str) -> Pointer[Char]:
+	"""Makes a char*"""
+
+	if not isinstance(value, str):
+		raise TypeError("Value must be a [str]")
+
+	if not value.endswith('\x00\x00'):
+		value += '\x00\x00'
+
+	# Make a list of Char
+	out = malloc(len(value) + 8) # +8 for metadata
+
+	out.cast(Char)
+
+	write(out, value.encode('utf-8'), len(value)) # Write the string to memory
+
+	return out # char* is basically the pointer to the first char in a string
 
 # Structs
 class Struct:
@@ -654,13 +707,19 @@ class Struct:
 		self.size = 0
 		self.value = NULL
 
+		self.data = [] # Data of the struct, Format = (<name>, <size>)
+
 		self.get_size() # Set the size
 
 		self.address = align(next_alloc, self.size)
 		append_next_alloc(self.size)
 
-		MEMORY_MAP[self.address] = self
-		ALLOC_TABLE[self.address] = self.size
+		set_mem(self.address, self.size, UNINITIALIZED * self.size)
+
+		self.deleted = False
+
+		for key, value in self.structure.items():
+			self.data.append((key, sizeof(value['type'])))
 
 	def access(self, name:str) -> Any:
 		"""Returns the value of the object"""
@@ -673,7 +732,17 @@ class Struct:
 
 		return val
 
-	def set(self, name:str, value) -> int:
+	def get_offset(self, name:str) -> int:
+		"""Returns the offset of the object"""
+		offset = 0
+
+		for key, value in self.data:
+			if key == name:
+				return offset
+
+			offset += value + 8 # 8 bytes for metadata
+
+	def set(self, name:str, value:object) -> int:
 		"""Sets the new value of a part of the struct. NOTE: The new value must be of the old defined type"""
 		t = None
 
@@ -690,13 +759,22 @@ class Struct:
 		except Exception:
 			return -3
 
+		if getattr(value, "address", None) is not None:
+			# We need to move the data to the struct
+			offset = self.get_offset(name)
+			set_mem(self.address + offset, value.size + 8, get_mem(value.address - 8, value.size + 8))
+			# remove old data
+			del_mem(value.address - 8, value.size + 8)
+		else:
+			pass # Probably a non C object
+
 		return 0
 
 	def get_size(self) -> int:
 		self.size = 0
 		for key, value in self.structure.items():
-			self.size += sizeof(value['value'])
-			
+			self.size += sizeof(value['type']).bytes
+
 		return self.size
 
 	def fill_b(self, data:bytes, byteorder:str='big') -> int:
@@ -718,7 +796,7 @@ class Struct:
 				field_value = Char(field_data.decode('utf-8'))
 			elif isinstance(field_type, Pointer):
 				if isinstance(field_type.type, Char):
-					field_value = string(field_data.decode('utf-8'))
+					field_value = make_string(field_data.decode('utf-8'))
 				elif isinstance(field_type.type, Array):
 					field_value = field_type.type
 					field_value.fill(field_data)
@@ -750,27 +828,21 @@ class Struct:
 	def write_b(self, buffer_:Pointer[Void]) -> int:
 		if self.size < 1:
 			return -1 # Size = 0
-			
-		addr = buffer_.pointer_address	
-		
-		for name, value in self.structure.items():
-			if value['value'] == None:
-				val = UNINITIALIZED
-			
-				set_mem(addr, val, value['type'].size)
-			
-				addr += value['type'].size
-				next_alloc += value['type'].size
-				
-			set_mem(addr, value['type'].size, value['value'])
-			
-			addr += value['value'].size
-			next_alloc += value['value'].size
+
+		addr = buffer_.pointer_address
+
+		self.get_size()
+		memcpy(buffer_, Pointer(Void, self.address), self.size)
 
 	def __del__(self) -> None:
-		MEMORY_MAP.pop(self.address)
-		ALLOC_TABLE.pop(self.address)
-		FREE_LIST.append((self.address, self.size))
+		if getattr(sys, 'meta_path', None) is None:
+			return  # Interpreter is shutting down; skip cleanup
+
+		if self.deleted:
+			return # Already deleted
+
+		del_mem(self.address, self.size)
+		self.deleted = True
 
 		# Free the objects
 		for key, value in self.structure.items():
@@ -779,52 +851,11 @@ class Struct:
 				del val
 
 	@classmethod
-	def __class_getitem__(cls, struct:dict):
-		class TypedStruct(cls):
-			self.__type__ = type_
-			self.save = cls
-			
-			def __new__(cls_, *args, **kwargs):
-				return self.save
-		
+	def __class_getitem__(cls, struct:dict={}, size_:int=0):
+		class TypedStruct:
+			structure = struct
+			size = size_
+			def __new__(cls_, structure:dict):
+				return cls(structure)
+
 		return TypedStruct
-
-
-	"""Opens a file"""
-	data = b""
-	
-	mode = get_string(mode).lower()
-	path = get_string(path)
-	
-	with open(path, mode) as f:
-		f.seek(0)
-		data = f.read()
-		
-	out = Struct(_IO_FILE_STRUCT)
-	
-	# parsed mode for _flags
-	pmode = _IO_MAGIC
-	
-	if 'r' in mode and '+' not in mode:
-		pmode |= _IO_NO_WRITES
-	elif 'w' in mode and '+' not in mode:
-		pmode |= _IO_NO_READS
-	elif 'a' in mode and '+' not in mode:
-		pmode |= _IO_NO_READS
-		pmode |= _IO_IS_APPENDING
-		
-	if '+' in mode:
-		pass # full read-write access
-		
-	#append
-	if 'a' in mode:
-		pmode |= _IO_IS_APPENDING
-	
-	if 'b' in mode:
-		pass # binary -> default buffering
-		pmode |= _IO_LINE_BUF # Text mode -> Line Buffered
-	elif 't' in mode:
-	
-	out.set("_flags", Int(pmode))
-	
-	return Pointer(Struct, out)
