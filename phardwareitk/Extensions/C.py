@@ -23,21 +23,26 @@ EXIT_FALUIRE = 1
 
 METADATA_MAGIC: bytes = int(0xF7F0FAF3).to_bytes(4, 'little')
 
-BASE = 0x0
-
-next_alloc = BASE
+base = 0x1
+next_alloc = base
 
 size = 64
 memory = mem.Memory(64, 0, None, False, 0) # Defaults to 64 bytes as size
 
 FREE_ADDR = {}
 
-def reset_mem(size_:int) -> None:
+def reset_mem(size_:int, base_:int=0x0, debug:bool=False) -> None:
 	"""Resets the memory but updates its size"""
 	global size
 	global memory
+	global base
+	global next_alloc
+	if base_ != 0x0:
+		base = base_
+		next_alloc = base
 	size = size_
-	memory = mem.Memory(size, 0, None, False, 0)
+	memory = mem.Memory(size, 0, None, debug, 0)
+	FREE_ADDR.clear()
 
 def get_next_alloc() -> int:
 	global next_alloc
@@ -112,10 +117,12 @@ def metadata_verify(data:bytes) -> int:
 
 def get_size_metadata(addr:int) -> int:
 	data: bytes = get_mem(addr, 8)
+	if len(data) < 8:
+		raise OSError(f"Not enough data to read metadata, expected 8 bytes, got less - {data}")
 
 	magic = data[0:4]
 	if not metadata_verify(magic) == 0:
-		raise OSError("Falsly mapped data in memory")
+		raise OSError(f"Falsly mapped data in memory, {data}")
 
 	return int.from_bytes(data[4:8], 'little')
 
@@ -456,8 +463,8 @@ class Array:
 		self.deleted = False
 
 	def fill(self, data:bytes) -> None:
-		for i in range(self.asize, step=self.tsize):
-			self.array.append(self.type(data[i]))
+		for i in range(0, self.asize, self.tsize):
+			self.array.append(self.type(data[i:self.tsize + i]))
 
 	def __repr__(self) -> str:
 		string = ""
@@ -682,7 +689,7 @@ def make_string(value:str) -> Pointer[Char]:
 		value += '\x00\x00'
 
 	# Make a list of Char
-	out = malloc(len(value) + 8) # +8 for metadata
+	out = malloc(len(value))
 
 	out.cast(Char)
 
@@ -719,7 +726,7 @@ class Struct:
 		self.deleted = False
 
 		for key, value in self.structure.items():
-			self.data.append((key, sizeof(value['type'])))
+			self.data.append((key, sizeof(value['type']).bytes))
 
 	def access(self, name:str) -> Any:
 		"""Returns the value of the object"""
@@ -759,14 +766,11 @@ class Struct:
 		except Exception:
 			return -3
 
-		if getattr(value, "address", None) is not None:
-			# We need to move the data to the struct
-			offset = self.get_offset(name)
-			set_mem(self.address + offset, value.size + 8, get_mem(value.address - 8, value.size + 8))
-			# remove old data
-			del_mem(value.address - 8, value.size + 8)
-		else:
-			pass # Probably a non C object
+		# We need to move the data to the struct
+		offset = self.get_offset(name)
+		set_mem(self.address + offset, value.size, get_mem(value.address, value.size))
+		# remove old data
+		del_mem(value.address - 8, value.size + 8)
 
 		return 0
 
@@ -832,7 +836,15 @@ class Struct:
 		addr = buffer_.pointer_address
 
 		self.get_size()
-		memcpy(buffer_, Pointer(Void, self.address), self.size)
+		write(buffer_, get_mem(self.address, self.size), self.size) # Basically memcpy but worse because memcpy can't work properly here.
+		return 0
+
+	def dereference(self, ptr:Pointer[Void]) -> None:
+		"""Dereferences a pointer to the struct and returns the struct object."""
+		self.get_size()
+		del_mem(self.address, self.size)
+		self.address = ptr.pointer_address
+		self.fill_b(get_mem(self.address, self.size))
 
 	def __del__(self) -> None:
 		if getattr(sys, 'meta_path', None) is None:
@@ -859,3 +871,15 @@ class Struct:
 				return cls(structure)
 
 		return TypedStruct
+
+def dereference_struct(ptr:Pointer[Struct], structure:dict) -> Struct:
+	"""Dereferences a pointer to a struct and returns the struct object.
+
+	Args:
+		ptr (Pointer[Struct]): Pointer to the struct object
+		structure (dict): The struct definition
+
+	Returns:
+		Struct: The struct object
+	"""
+	return Struct(structure).dereference(ptr)

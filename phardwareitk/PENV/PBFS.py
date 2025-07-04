@@ -14,7 +14,7 @@ from Extensions.C_IO import *
 
 PBFS_HEADER = {
 	"Magic": {
-		"type": Array[Char, 6],
+		"type": Pointer[Char],
 		"value": None
 	},
 
@@ -27,7 +27,7 @@ PBFS_HEADER = {
 		"value": None
 	},
 	"Disk_Name": {
-		"type": Array[Char, 20],
+		"type": Pointer[Char],
 		"value": None
 	},
 	"TimeStamp": {
@@ -339,36 +339,37 @@ PBFS_FILE_LIST_ENTRY = {
 } PBFS_FileListEntry;"""
 
 def format_disk(path:str, total_blocks:int=2048, block_size:int=512, disk_name:bytes=b'SSD-PBFS-VIRTUAL') -> int:
-	if not os.path.exists(path):
-		return -1
-
-	file:Pointer[FILE] = fopen(path, "wb")
+	print("Formatting disk...")
+	path = make_string(path)
+	mode = make_string("wb+")
+	file:Pointer[FILE] = fopen(path, mode)
 
 	# Now we format it
 	PBFS_Header = Struct(PBFS_HEADER)
-	PBFS_Header.set("Magic", Array(Char, 6).fill(b"PBFS\0\0"))
+	PBFS_Header.set("Magic", make_string("PBFS\x00\x00"))
 	PBFS_Header.set("Block_Size", Uint32_t(block_size))
 	PBFS_Header.set("Total_Blocks", Uint32_t(total_blocks))
-	PBFS_Header.set("Disk_Name", Array(Char, 20).fill(disk_name))
+	PBFS_Header.set("Disk_Name", make_string(disk_name))
 	PBFS_Header.set("Timestamp", Uint64_t(int(time.time())))
 	PBFS_Header.set("Version", Uint32_t(1))
 	PBFS_Header.set("Entries", Uint32_t(0))
 
+	print("Writing PBFS Header...")
 	lba1_buff = malloc(block_size)
 
 	PBFS_Header.write_b(lba1_buff)
 
+	print("Writing PBFS Header to file...")
+	print(f"Writing - \n{read(lba1_buff, block_size)}")
+	fwrite("\x00", 1, block_size, file)
+	fseek(file, block_size + 1, SEEK_SET)
 	fwrite(lba1_buff, block_size, 1, file)
 
 	free(lba1_buff)
-	# Now we write the bitmap
-	lba2_buff = malloc((1 / 8) * total_blocks)
-	memset(lba2_buff, 0, ((1 / 8) * total_blocks))
-
-	fwrite(lba2_buff, (1 / 8) * total_blocks, 1, file)
-
-	free(lba2_buff)
-
+	print("Done formatting disk...")
 	fclose(file)
 
+	print("Finished!")
+
 	return 0
+

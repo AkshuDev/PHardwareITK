@@ -9,9 +9,9 @@ if not module_path in sys.path:
 if not os.path.dirname(__file__) in sys.path:
     sys.path.append(os.path.dirname(__file__))
 
-from PBFS import PBFS_HEADER_FORMAT
+from PBFS import PBFS_HEADER
 
-from phardwareitk.Memory import Memory as memory
+from phardwareitk.Memory import Memory as Mem
 from phardwareitk.PENV.shared import *
 from phardwareitk.PENV.framebuffer import Framebuffer
 from phardwareitk.PENV import PBFS
@@ -19,7 +19,7 @@ from phardwareitk.PENV import PBFS
 SystemData: dict = {}
 drive_data: dict = {}
 
-DRIVE_PATH = os.path.join(base_path, "drive.pbfs")
+DRIVE_PATH = os.path.join(base_path, "PheonixSSD.pbfs")
 
 # Get System Info
 def GetSystemInfoBIOS() -> None:
@@ -36,7 +36,7 @@ def GetSystemInfoBIOS() -> None:
     SystemData["host_platform"] = platform.platform()
     SystemData["host_uname"] = platform.uname()
     SystemData["ram_size"] = round(
-        psutil.virtual_memory().total / (1024**3), 2
+        psutil.virtual_Mem().total / (1024**3), 2
     )  # in GB
     SystemData["storage_size"] = round(
         psutil.disk_usage("/").total / (1024**3), 2
@@ -83,7 +83,7 @@ def search_for_bootloader() -> str:
         files = []
 
         for file_ in os.listdir(DRIVE_PATH):
-            if file_.endswith(".py"):
+            if file_.endswith(".py") or file_.endswith(".vasm"):
                 files.append(file_)
 
         if not files:
@@ -137,7 +137,7 @@ def search_for_bootloader() -> str:
 
     return bootloader_path
 
-def run_bootloader(file_path: str, mem: memory.Memory, bios_ram_start_addr: int, fb: Framebuffer) -> tuple:
+def run_bootloader(file_path: str, mem: Mem.Memory, bios_ram_start_addr: int, fb: Framebuffer) -> tuple:
     set_mem(mem)
 
     size_of_bl: int = os.stat(file_path).st_size

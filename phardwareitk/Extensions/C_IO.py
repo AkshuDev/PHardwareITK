@@ -8,6 +8,9 @@ if not os.path.dirname(os.path.abspath(__file__)) in sys.path:
 
 from C import *
 
+SEEK_SET = 0
+SEEK_CUR = 1
+SEEK_END = 2
 
 _IO_FILE = {
     "_IO_read_ptr": {

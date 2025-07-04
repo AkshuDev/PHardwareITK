@@ -5,4 +5,4 @@ sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from phardwareitk.PENV import *
 
-start_penv()
+start_penv(command_py="py")

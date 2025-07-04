@@ -83,10 +83,10 @@ class Memory:
         self.ram:bytearray = bytearray(size)
         self.current_addr:int = 0x0
         self.mem_blocks:list[MemBlock] = Block
-        
+
         self.proc_sector_size = proc_sector_size
 
-        self.sys_block:MemBlock = MemBlock(64, [__file__], "_WIN32-PR", 0)
+        self.sys_block:MemBlock = MemBlock(system_size, [__file__], "_WIN32-PR", 0)
 
         self.debug = debug
 
@@ -148,24 +148,24 @@ class Memory:
         end_seek = addr + size
 
         if addr >= self.sys_block.seek and addr <= self.sys_block.end_seek:
-            if not self.sys_block.access == file:
+            if not self.sys_block.access == file and not self.sys_block.size == 0:
                 if self.debug: print(f"PHardwareITK/Memory/_platform/_win32: ERROR -> Address comes under a system block named -> {self.sys_block.name}")
                 return False
 
         if not self.mem_blocks == None:
             for block in self.mem_blocks:
                 if addr >= block.seek and addr <= block.end_seek:
-                    if not file in block.access:
+                    if not file in block.access and not block.size == 0:
                         if self.debug: print(f"PHardwareITK/Memory/_platform/_win32: ERROR -> Address comes under a block named -> {block.name}")
                         return False
 
                 if end_seek >= block.seek and end_seek <= block.end_seek:
-                    if not file in block.access:
+                    if not file in block.access and not block.size == 0:
                         if self.debug: print(f"PHardwareITK/Memory/_platform/_win32: ERROR -> End of Data comes under a block named -> {block.name}")
                         return False
 
                 if addr < block.seek and end_seek > block.end_seek:
-                    if not file in block.access:
+                    if not file in block.access and not block.size == 0:
                         if self.debug: print(f"PHardwareITK/Memory/_platform/_win32: ERROR -> Data comes under a block named -> {block.name}")
                         return False
 
@@ -178,11 +178,11 @@ class Memory:
 
         if self._CFBlock(addr, len(data) + size) == False:
             return False
-		
+
         if size:
             append_ = 0
             data = data + append_.to_bytes(size, "little")
-		
+
         self.ram[self.current_addr:self.current_addr + len(data)] = data
         return True
 
