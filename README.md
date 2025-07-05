@@ -1,4 +1,4 @@
-<img src="https://github.com/AkshuDev/PHardwareITK/blob/master/Images/Logo/PHardwareITK-logo.png?raw=true" alt="Logo" width=100 height=100>
+<img src="https://github.com/AkshuDev/PHardwareITK/blob/master/Images/Logo/PHardwareITK-logo.png?raw=true" alt="Logo" width=250 height=250>
 
 # PHardwareITK (Pheonix Hardware Interface Toolkit)
 [![PyPI Downloads](https://static.pepy.tech/badge/phardwareitk)](https://pepy.tech/projects/phardwareitk)
