@@ -160,6 +160,8 @@ class Uint8_t:
 
 		if value > 0xFF:
 			raise TypeError("Value exceeds 8 bits or 1 byte")
+		elif value < 0x0:
+			raise TypeError("Value less than 0")
 
 		self.value = value
 		self.data = value.to_bytes(1, 'little')
@@ -202,6 +204,8 @@ class Uint16_t:
 
 		if value > 0xFFFF:
 			raise TypeError("Value Exceeds 16 bits or 2 bytes")
+		elif value < 0x0:
+			raise TypeError("Value less than 0")
 
 		self.value = value
 		self.data = value.to_bytes(2, 'little')
@@ -244,6 +248,8 @@ class Uint32_t:
 
 		if value > 0xFFFFFFFF:
 			raise TypeError("Value Exceeds 32 bits or 4 bytes")
+		elif value < 0x0:
+			raise TypeError("Value less than 0")
 
 		self.value = value
 		self.data = value.to_bytes(4, 'little')
@@ -286,6 +292,8 @@ class Uint64_t:
 
 		if value > 0xFFFFFFFFFFFFFFFF:
 			raise TypeError("Value Exceeds 64 bits or 8 bytes")
+		elif value < 0x0:
+			raise TypeError("Value less than 0")
 
 		self.value = value
 		self.data = value.to_bytes(8, 'little')
@@ -311,8 +319,162 @@ class Uint64_t:
 
 		self.deleted = True
 
+class Int8:
+	"""int8"""
+	def __init__(self, value:int=0) -> None:
+		self.og_value = value
+
+		if isinstance(value, str):
+			if not len(value) == 0:
+				value = ord(value)
+			else:
+				value = 0
+		elif isinstance(value, bytes):
+			value = int.from_bytes(value, 'big')
+
+		if value > 0x7F:
+			raise TypeError("Value Doesn't fit in 8 bits or 1 bytes")
+		elif value < 0x80:
+			raise TypeError("Value Doesn't fit in 8 bits or 1 bytes")
+
+		self.value = value
+		self.data = value.to_bytes(8, 'little')
+		self.size = 1
+		self.address = align(next_alloc, self.size)
+		append_next_alloc(self.size)
+
+		set_mem(self.address, self.size, self.data)
+
+		self.deleted = False
+
+	def __repr__(self) -> str:
+		return f"{self.og_value}"
+
+	def __del__(self) -> None:
+		if self.deleted:
+			return
+
+		del_mem(self.address, self.size)
+
+		self.deleted = True
+class Int16:
+	"""int16"""
+	def __init__(self, value:int=0) -> None:
+		self.og_value = value
+
+		if isinstance(value, str):
+			if not len(value) == 0:
+				value = ord(value)
+			else:
+				value = 0
+		elif isinstance(value, bytes):
+			value = int.from_bytes(value, 'big')
+
+		if value > 0x7FFF:
+			raise TypeError("Value Doesn't fit in 16 bits or 2 bytes")
+		elif value < 0x8000:
+			raise TypeError("Value Doesn't fit in 16 bits or 2 bytes")
+
+		self.value = value
+		self.data = value.to_bytes(8, 'little')
+		self.size = 2
+		self.address = align(next_alloc, self.size)
+		append_next_alloc(self.size)
+
+		set_mem(self.address, self.size, self.data)
+
+		self.deleted = False
+
+	def __repr__(self) -> str:
+		return f"{self.og_value}"
+
+	def __del__(self) -> None:
+		if self.deleted:
+			return
+
+		del_mem(self.address, self.size)
+
+		self.deleted = True
+class Int32:
+	"""int32"""
+	def __init__(self, value:int=0) -> None:
+		self.og_value = value
+
+		if isinstance(value, str):
+			if not len(value) == 0:
+				value = ord(value)
+			else:
+				value = 0
+		elif isinstance(value, bytes):
+			value = int.from_bytes(value, 'big')
+
+		if value > 0x7FFFFFFF:
+			raise TypeError("Value Doesn't fit in 32 bits or 4 bytes")
+		elif value < 0x80000000:
+			raise TypeError("Value Doesn't fit in 32 bits or 4 bytes")
+
+		self.value = value
+		self.data = value.to_bytes(8, 'little')
+		self.size = 4
+		self.address = align(next_alloc, self.size)
+		append_next_alloc(self.size)
+
+		set_mem(self.address, self.size, self.data)
+
+		self.deleted = False
+
+	def __repr__(self) -> str:
+		return f"{self.og_value}"
+
+	def __del__(self) -> None:
+		if self.deleted:
+			return
+
+		del_mem(self.address, self.size)
+
+		self.deleted = True
+class Int64:
+	"""int64"""
+	def __init__(self, value:int=0) -> None:
+		self.og_value = value
+
+		if isinstance(value, str):
+			if not len(value) == 0:
+				value = ord(value)
+			else:
+				value = 0
+		elif isinstance(value, bytes):
+			value = int.from_bytes(value, 'big')
+
+		if value > 0x7FFFFFFFFFFFFFFF:
+			raise TypeError("Value Doesn't fit in 64 bits or 8 bytes")
+		elif value < 0x8000000000000000:
+			raise TypeError("Value Doesn't fit in 64 bits or 8 bytes")
+
+		self.value = value
+		self.data = value.to_bytes(8, 'little')
+		self.size = 8
+		self.address = align(next_alloc, self.size)
+		append_next_alloc(self.size)
+
+		set_mem(self.address, self.size, self.data)
+
+		self.deleted = False
+
+	def __repr__(self) -> str:
+		return f"{self.og_value}"
+
+	def __del__(self) -> None:
+		if self.deleted:
+			return
+
+		del_mem(self.address, self.size)
+
+		self.deleted = True
+
+
 # Types of int
-class Short(Uint16_t):
+class Short(Int16):
 	"""short"""
 	def __init__(self, value:int=0) -> None:
 		super().__init__(value)
@@ -323,7 +485,7 @@ class Short(Uint16_t):
 	def __del__(self) -> None:
 		super().__del__()
 
-class Long(Uint32_t):
+class Long(Int32):
 	"""long"""
 	def __init__(self, value:int=0) -> None:
 		super().__init__(value)
@@ -334,7 +496,7 @@ class Long(Uint32_t):
 	def __del__(self) -> None:
 		super().__del__()
 
-class Int(Uint32_t):
+class Int(Int32):
 	"""int"""
 	def __init__(self, value:int=0) -> None:
 		super().__init__(value)
@@ -346,7 +508,7 @@ class Int(Uint32_t):
 		super().__del__()
 
 # Chars and string access
-class Char(Uint8_t):
+class Char(Int8):
 	"""char"""
 	def __init__(self, value:Union[str, int, bytes]='\0') -> None:
 		super().__init__(value)
