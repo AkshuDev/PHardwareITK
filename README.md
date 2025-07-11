@@ -11,6 +11,7 @@ PHardwareITK, or Pheonix Hardware Interface Toolkit, is a comprehensive Python m
 For examples please visit -> [https://github.com/AkshuDev/PHardwareITK] and navigate to the Tests folder.
 
 ***IMPORTANT NOTE: THIS IS A OUTDATED README, PLEASE USE GITHUB WIKI (READTHEROCS COMMING SOON)***
+[[!Wiki](https://github.com/AkshuDev/PHardwareITK/wiki)
 
 ## Table of Contents ->
 1. Module Overview
@@ -285,11 +286,11 @@ The LIB.py file contains a class called Paths, which provides access to file pat
 
 PHardwareITK is designed to run with mostly the Python standard library, ensuring compatibility across all systems with minimal need for external dependencies. However, in the case that any of the pre-installed modules are deleted or missing, the Dependencies.py file will help ensure that all necessary libraries are present.
 
-Required Dependencies ->
+Not Required Dependencies ->
 
-1. PySDL2 (pip install pysdl2)
-2. PySDL2-DLL (pip install pysdl2-dll)
-3. PyOpenGL (pip install PyOpenGL)
+1. PySDL2 (**pip install pysdl2**)
+2. PySDL2-DLL (**pip install pysdl2-dll**)
+3. PyOpenGL (**pip install PyOpenGL**)
 
 NOTE: All these are for the gui toolkit.
 
