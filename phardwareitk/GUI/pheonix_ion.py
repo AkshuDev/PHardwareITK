@@ -28,20 +28,17 @@ def try_load_library(lib_names:list):
     return None
 
 class PIonWindow:
-    def __init__(self, title:str, width:int, height:int, flags=None, window=None) -> None:
+    def __init__(self, title:str, width:int, height:int, flags=None, handle=None) -> None:
         self.title = title
         self.width = width
         self.height = height
-        self.handle = None
-        self.backend = self._select_backend()
+        self.handle = handle
+        
         self.backends = PIenum()
         self.backends.create_enum(["Win32", "X11", "Cocoa"])
+        self.backend = self._select_backend()
+        
         self.flags = flags
-        self.window
-
-    def create_window(self):
-        """Create a window using the selected backend."""
-        self.handle = self.backend.create_window(self.title, self.width, self.height)
 
     def _select_backend(self, backend:Union[str, PIenum]=None) -> str:
         if not backend:
@@ -56,7 +53,7 @@ class PIonWindow:
                 return None
         else:
             if isinstance(backend, str):
-                bkend = backend.access(backend)
+                bkend = self.backends.access(backend)
                 if not bkend:
                     raise UnsupportedPlatform(f"Unsupported backend: {backend}")
                 return bkend
@@ -64,9 +61,6 @@ class PIonWindow:
                 return backend.value
             else:
                 raise ValueError("Backend must be a string or PIenum instance")
-
-    def poll_events(self):
-        return self.backend.poll_events(self.handle)
 
 class GPUContext:
     def __init__(self, window, api:str=None) -> None:
@@ -162,24 +156,48 @@ class GPUContext:
 class PheonixIon:
     def __init__(self):
         self.system:str = SYSTEM
-        self.backend = self._load_backend()
-        self.window = None
-        self.pionwindow = None
+        self.windows:list[PIonWindow] = []
+        
         self.pionbackend = None
+        self.backend = ""
+        
+        self._load_backend()
 
-    def _load_backend(self):
+    def _load_backend(self, backend__:str=None):
+        if backend__:
+            backend_ = backend__.lower()
+            if backend_ == "win32":
+                from phardwareitk.GUI.PheonixIon import win32 as backend
+                self.pionbackend = backend
+                self.backend = "Win32"
+            elif backend_ == "x11":
+                from phardwareitk.GUI.PheonixIon import x11 as backend
+                self.pionbackend = backend
+                self.backend = "X11"
+            elif backend_ == "cacoa":
+                from phardwareitk.GUI.PheonixIon import cacao as backend
+                self.pionbackend = backend
+                self.backend = "Cacoa"
+            else:
+                raise UnsupportedPlatform(f"Unknown backend: {backend__}")
+                
+            return None
+        
         if self.system == "windows":
             from phardwareitk.GUI.PheonixIon import win32 as backend
-            self.pionbackend = "Win32"
+            self.pionbackend = backend
+            self.backend = "Win32"
         elif self.system == "linux":
             from phardwareitk.GUI.PheonixIon import x11 as backend
-            self.pionbackend = "X11"
+            self.pionbackend = backend
+            self.backend = "X11"
         elif self.system == "darwin":
             from phardwareitk.GUI.PheonixIon import cocoa as backend
-            self.pionbackend = "Cocoa"
+            self.pionbackend = backend
+            self.backend = "Cacoa"
         else:
             raise UnsupportedPlatform(f"Unsupported platform: {self.system}")
-        return backend
+        return None
 
     def create_window(self, title:str="Pheonix Ion", width:int=800, height:int=600, flags=None) -> PIonWindow:
         """Create a window with specified parameters.
@@ -192,20 +210,102 @@ class PheonixIon:
         Returns:
             PIonWindow: The created window object.
         """
-        self.window = self.backend.create_window(title, width, height, flags)
+        handle = self.pionbackend.create_window(title, width, height, flags)
 
-        window = PIonWindow(title, width, height, flags, window)
-        window._select_backend(self.pionbackend)
+        win = PIonWindow(title, width, height, flags, handle)
+        win._select_backend(self.backend)
+        
+        self.windows.append(win)
+        
+        return win
 
-        self.pionwindow = window
-        return window
-
-    def poll_events(self):
+    def poll_events(self, win:Union[int, PIonWindow]):
         """Poll events for the created window."""
-        if not self.window:
+        handle = self.get_native_handle(win)
+        
+        if not handle:
             return []
-        return self.backend.poll_events(self.window)
+            
+        return self.pionbackend.poll_events(handle)
+        
+    def destroy_window(self, win: Union[int, PIonWindow]):
+        """
+        Destroy a window and release its resources.
 
-    def get_native_handle(self):
+        Parameters:
+            win (int | PIonWindow): Window index or PIonWindow instance.
+        """
+        window = self.get_native_handle(win)
+        if not window:
+            return
+        self.pionbackend.destroy_window(window)
+        self.windows = [w for w in self.windows if w.handle != window]
+
+    def hide_window(self, win: Union[int, PIonWindow]):
+        """
+        Hide a window (make it invisible but not destroyed).
+
+        Parameters:
+            win (int | PIonWindow): Window index or PIonWindow instance.
+        """
+        window = self.get_native_handle(win)
+        if window:
+            self.pionbackend.hide_window(window)
+
+    def show_window(self, win: Union[int, PIonWindow]):
+        """
+        Show a previously hidden window.
+
+        Parameters:
+            win (int | PIonWindow): Window index or PIonWindow instance.
+        """
+        window = self.get_native_handle(win)
+        if window:
+            self.pionbackend.show_window(window)
+
+    def set_window_title(self, win: Union[int, PIonWindow], title: str):
+        """
+        Change the title of a window.
+
+        Parameters:
+            win (int | PIonWindow): Window index or PIonWindow instance.
+            title (str): New window title.
+        """
+        window = self.get_native_handle(win)
+        if window:
+            self.pionbackend.set_window_title(window, title)
+            w = self.get_window(win)
+            if w:
+                w.title = title
+
+    def is_window_alive(self, win: Union[int, PIonWindow]) -> bool:
+        """
+        Check if a window is still alive (not closed/destroyed).
+
+        Parameters:
+            win (int | PIonWindow): Window index or PIonWindow instance.
+
+        Returns:
+            bool: True if the window is alive, False otherwise.
+        """
+        window = self.get_native_handle(win)
+        if window:
+            return self.pionbackend.is_window_alive(window)
+        return False
+        
+    def get_window(self, win:Union[int, PIonWindow], throw_err=False) -> Optional[PIonWindow]:
+        """Gets the PIonWindow based of its index, or class"""
+        if isinstance(win, int):
+            return self.windows[win]
+        elif isinstance(win, PIonWindow):
+            return win
+        else:
+            if throw_err: raise ValueError("Unknown type provided for parameter 'win', supported types are - int or PIonWindow")
+            return None
+
+    def get_native_handle(self, win:Union[int, PIonWindow]):
         """Return OS-specific window handle (HWND on Win, X11 tuple, NSWindow on Mac)."""
-        return self.window
+        handle = self.get_window(win)
+        if not handle: return None
+        
+        return handle.handle

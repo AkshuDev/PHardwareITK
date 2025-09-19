@@ -41,6 +41,23 @@ PError:bool = False
 title:Optional[str] = None
 taskbarWindowedIds:list[str] = []
 
+
+def SafeExitSDL(msg:Optional[Union[str, int, dict, bool, list, tuple]], DestroyFunc:object, DestroyFuncParams:tuple) -> None:
+    """Safe Exit for SDL.
+
+    Args:
+        msg (Optional[Union[str, int, dict, bool, list, tuple]]): Message.
+        DestroyFunc (object): The DestroyFunc in gui_sdl.py.
+        DestroyFuncParams (tuple): The DestroyFunc Parameters in gui_sdl.py.
+    """
+    DestroyFunc(*DestroyFuncParams)
+    if msg:
+        msg = str(msg)
+        if msg != "":
+            HyperOut.printH(msg, FontEnabled=True, Font=Extensions.TextFont(font_color=Extensions.Color("red")))
+
+    sdl2.SDL_Quit()
+
 class WidgetPack():
     """A type for a single PACKED Widget.
     """

@@ -1,5 +1,4 @@
 import platform
-import sdl2
 
 import sys
 import os
@@ -17,22 +16,6 @@ from typing import *
 
 def get_platform() -> str:
     return platform.system().lower()
-
-def SafeExitSDL(msg:Optional[Union[str, int, dict, bool, list, tuple]], DestroyFunc:object, DestroyFuncParams:tuple) -> None:
-    """Safe Exit for SDL.
-
-    Args:
-        msg (Optional[Union[str, int, dict, bool, list, tuple]]): Message.
-        DestroyFunc (object): The DestroyFunc in gui_sdl.py.
-        DestroyFuncParams (tuple): The DestroyFunc Parameters in gui_sdl.py.
-    """
-    DestroyFunc(*DestroyFuncParams)
-    if msg:
-        msg = str(msg)
-        if msg != "":
-            HyperOut.printH(msg, FontEnabled=True, Font=Extensions.TextFont(font_color=Extensions.Color("red")))
-
-    sdl2.SDL_Quit()
 
 #Check Platform
 OS:str = get_platform()
