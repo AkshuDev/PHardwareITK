@@ -5,7 +5,7 @@ path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 
 if not path in sys.path:
     sys.path.append(path)
-    
+
 from phardwareitk.System.CSpectre import *
 
 # Including a header
@@ -14,8 +14,8 @@ preblt = CPrebuilt()
 
 preblt.include(input("Header file: "))
 print("Functions")
-print(preblt.functions)
+print(preblt.resolved_functions)
 print("Macros")
-print(preblt.macros)
+print(preblt.resolved_macros)
 print("Conditional Stack")
-print(preblt.cond_stack)
+print(preblt.conditional_stack)

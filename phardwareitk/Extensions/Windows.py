@@ -153,6 +153,7 @@ HGDIOBJ = HANDLE
 HGLOBAL = HANDLE
 HHOOK = HANDLE
 HICON = HANDLE
+HCURSOR = HANDLE
 HINSTANCE = HANDLE
 HKEY = HANDLE
 HKL = HANDLE
@@ -187,16 +188,45 @@ INT = ctypes.c_int
 DOUBLE = ctypes.c_double
 FLOAT = ctypes.c_float
 BOOLEAN = BYTE
-BOOL = ctypes.c_long
+BOOL = ctypes.c_int
 ULONG = ctypes.c_ulong
 LONG = ctypes.c_long
 USHORT = ctypes.c_ushort
 SHORT = ctypes.c_short
 
 # Pointer Types
-if ctypes.sizeof(ctypes.c_long) == ctypes.sizeof(ctypes.c_void_p):
-    WPARAM = ctypes.c_ulong
-    LPARAM = ctypes.c_long
-elif ctypes.sizeof(ctypes.c_longlong) == ctypes.sizeof(ctypes.c_void_p):
-    WPARAM = ctypes.c_ulonglong
-    LPARAM = ctypes.c_longlong
+WPARAM  = ctypes.c_uint32
+LPARAM  = ctypes.c_int32
+LRESULT = ctypes.c_int32
+
+if ctypes.sizeof(ctypes.c_void_p) == 8:
+    WPARAM = ctypes.c_uint64
+    LPARAM = ctypes.c_int64
+    LRESULT = ctypes.c_int64
+
+# Special
+WNDPROC = ctypes.WINFUNCTYPE(LRESULT, HWND, UINT, WPARAM, LPARAM)
+
+# Structs
+class POINT(ctypes.Structure):
+    _fields_ = [("x", LONG), ("y", LONG)]
+
+class MSG(ctypes.Structure):
+    _fields_ = [("hWnd", HWND), ("message", UINT), ("wParam", WPARAM), ("lParam", LPARAM), ("time", DWORD), ("pt", POINT)]
+
+    #if ctypes.sizeof(ctypes.c_void_p) == 8: # 64-bit
+    #    _fields_.append(("lPrivate", DWORD))
+
+class WNDCLASS(ctypes.Structure):
+    _fields_ = [
+        ("style", UINT),
+        ("lpfnWndProc", WNDPROC),
+        ("cbClsExtra", ctypes.c_int),
+        ("cbWndExtra", ctypes.c_int),
+        ("hInstance", HINSTANCE),
+        ("hIcon", HICON),
+        ("hCursor", HCURSOR),
+        ("hbrBackground", HBRUSH),
+        ("lpszMenuName", LPCWSTR),
+        ("lpszClassName", LPCWSTR),
+    ]

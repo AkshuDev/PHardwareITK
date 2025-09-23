@@ -33,11 +33,11 @@ class PIonWindow:
         self.width = width
         self.height = height
         self.handle = handle
-        
+
         self.backends = PIenum()
-        self.backends.create_enum(["Win32", "X11", "Cocoa"])
+        self.backends.create_enum(["Win32", "X11", "Cocoa"], 1)
         self.backend = self._select_backend()
-        
+
         self.flags = flags
 
     def _select_backend(self, backend:Union[str, PIenum]=None) -> str:
@@ -54,7 +54,7 @@ class PIonWindow:
         else:
             if isinstance(backend, str):
                 bkend = self.backends.access(backend)
-                if not bkend:
+                if bkend == None:
                     raise UnsupportedPlatform(f"Unsupported backend: {backend}")
                 return bkend
             elif isinstance(backend, PIenum):
@@ -157,10 +157,10 @@ class PheonixIon:
     def __init__(self):
         self.system:str = SYSTEM
         self.windows:list[PIonWindow] = []
-        
+
         self.pionbackend = None
         self.backend = ""
-        
+
         self._load_backend()
 
     def _load_backend(self, backend__:str=None):
@@ -180,9 +180,9 @@ class PheonixIon:
                 self.backend = "Cacoa"
             else:
                 raise UnsupportedPlatform(f"Unknown backend: {backend__}")
-                
+
             return None
-        
+
         if self.system == "windows":
             from phardwareitk.GUI.PheonixIon import win32 as backend
             self.pionbackend = backend
@@ -214,20 +214,20 @@ class PheonixIon:
 
         win = PIonWindow(title, width, height, flags, handle)
         win._select_backend(self.backend)
-        
+
         self.windows.append(win)
-        
+
         return win
 
     def poll_events(self, win:Union[int, PIonWindow]):
         """Poll events for the created window."""
         handle = self.get_native_handle(win)
-        
+
         if not handle:
             return []
-            
+
         return self.pionbackend.poll_events(handle)
-        
+
     def destroy_window(self, win: Union[int, PIonWindow]):
         """
         Destroy a window and release its resources.
@@ -292,7 +292,7 @@ class PheonixIon:
         if window:
             return self.pionbackend.is_window_alive(window)
         return False
-        
+
     def get_window(self, win:Union[int, PIonWindow], throw_err=False) -> Optional[PIonWindow]:
         """Gets the PIonWindow based of its index, or class"""
         if isinstance(win, int):
@@ -307,5 +307,5 @@ class PheonixIon:
         """Return OS-specific window handle (HWND on Win, X11 tuple, NSWindow on Mac)."""
         handle = self.get_window(win)
         if not handle: return None
-        
+
         return handle.handle

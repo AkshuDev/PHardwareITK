@@ -4,7 +4,7 @@ import sys
 PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 
 if not PATH in sys.path:
-    sys.path.append(PATH)
+    sys.path.insert(0, PATH)
 
 from phardwareitk.GUI.pheonix_ion import *
 
@@ -21,7 +21,7 @@ while running:
     if i == 10000000 :
         running = False
     i += 1
-    
+
 print("Destroying Window...")
 ionhandler.destroy_window(0)
 print("Done!")
