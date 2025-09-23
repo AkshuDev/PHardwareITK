@@ -10,7 +10,7 @@ PHardwareITK, or Pheonix Hardware Interface Toolkit, is a comprehensive Python m
 
 For examples please visit -> [https://github.com/AkshuDev/PHardwareITK] and navigate to the Tests folder.
 
-***IMPORTANT NOTE: THIS IS A OUTDATED README, PLEASE USE GITHUB WIKI (READTHEROCS COMMING SOON)***
+***IMPORTANT NOTE: THIS README ONLY PROVIDES A BRIEF VIEW, PLEASE USE GITHUB WIKI FOR A MORE COMPREHENSIVE VIEW***
 
 (https://github.com/AkshuDev/PHardwareITK/wiki)
 
@@ -36,6 +36,8 @@ The module includes a set of tools for both novice and experienced developers, i
 3. ErrorSystem: A comprehensive error handling system.
 4. FileSystem: A set of utilities for interacting with various file formats and performing low-level file operations.
 5. HGame: A versatile game development framework that supports multiple rendering engines.
+6. System Toolkit: A toolkit designed for system level formation and C language.
+7. Extensions: A bunch of extensions that allow PHardwareITK to be even better.
 
 ## Key Features
 
@@ -43,7 +45,6 @@ The module includes a set of tools for both novice and experienced developers, i
 2. Modular Design: Includes a variety of specialized toolkits that can be used independently or together.
 3. User-Friendly: Functions are designed to be simple to use, but powerful enough for advanced use cases.
 4. Customizable: With features like custom error classes and extendable file system operations, users can adapt the toolkit to their specific needs.
-5. Comprehensive Documentation: Detailed explanations and examples of how to use each feature.
 
 ## Installation
 To install PHardwareITK, follow the steps below:
@@ -51,22 +52,28 @@ To install PHardwareITK, follow the steps below:
 1. Ensure you are using Python 3.7 or later.
 2. Install Using the following command
 
+``` bash
     pip install phardwareitk
+```
 
 3. Or instead download PheonixAppAPI which includes this module pre-installed inside PheonixAppAPI.Apis.Modules.Pre.phardwareitk
 4. Install PheonixAppAPI
-   
+```bash
     pip install PheonixAppAPI
+```
 
 5. Navigate to the downloaded PheonixAppAPI folder/Scripts and run PostInstall.py
 6. Your good to go
 
+***NOTE: The module is now not being maintained and might have an old version of PHardwareITK***
+
 # Usage
 Once the module is installed, you can import it into your Python code. Here are some example use cases:
 
-## Example: Using the CLI Toolkit. (Nano Copy in 100 lines)
+## Example: Using the CLI Toolkit. (CLI Text Editor in 100 lines)
 # Command Line Interface ToolKit Test
 
+```python
     import sys
     import os
     import time
@@ -189,6 +196,7 @@ Once the module is installed, you can import it into your Python code. Here are 
     StatusLabel()
     while True:
         KeyPress()
+```
 
 # Available Toolkits ->
 1. CLI Toolkit:
@@ -204,15 +212,15 @@ Text Output/Input with font and colors.
 
 2. GUI Toolkit
 
-The GUI Toolkit is a cross-platform toolkit that allows developers to create complex graphical user interfaces from scratch. It supports multiple UI frameworks including OpenGL, SDL2. The toolkit is fully customizable and provides advanced functionality for creating modern applications.
+The GUI Toolkit is a cross-platform toolkit that allows developers to create complex graphical user interfaces from scratch. It supports multiple UI frameworks including OpenGL, SDL2, and a native PheonixIon framework. The toolkit is fully customizable and provides advanced functionality for creating modern applications.
 
-It is under development and renderGUI.pyx has to be compiled by GCC/Clang and Cython. Instead for the time, use gui_sdl.py (phardwareitk.GUI.gui). The functions inside gui_sdl and renderGUI are supposed to make the process easy, but it is still under development. Hence, you can still use SDL and OpenGL functions to do whatever you want unlike PyQT5 and Tkinter. This toolkit provides all the functions in SDL2 and OpenGL.
+Pheonix Ion is a PHardwareITK native framework and currently is under heavy development.
 
 Key features:
 
 Full cross-platform support (Linux, Windows, macOS). \
 Highly customizable and extensible components. \
-Multiple backend support (OpenGL, SDL2).
+Multiple backend support (OpenGL, SDL2, PheonixIon).
 
 3. PLTEC
 
@@ -230,7 +238,7 @@ Detailed error messages and stack trace support.
 
 5. System
    
-The System folder includes a range of system utilities such as SysUsage, which allows you to monitor and interact with your computer’s hardware and devices.
+The System folder includes a range of system utilities such as SysUsage, which allows you to monitor and interact with your computer’s hardware and devices. And also allows working with C files and libraries.
 
 Key features:
 
@@ -241,12 +249,12 @@ Real-time usage statistics and logging.
    
 The Extensions folder provides enhanced versions of Python's built-in functions, adding more capabilities. For example, the printH function in the HyperOut.py file allows for advanced text printing with background and foreground colors, fonts, and other enhancements. It also includes custom functions that make hard parts of programming easy like -> progressH that can create a progress bar in the terminal. It is highly flexible.
 
-NOTE: Mostly all terminal tasks even inside the phardwareitk are done using the cliToolKit.py (phardwareitk.CLI.cliToolKit).
+***NOTE: Mostly all terminal tasks even inside the phardwareitk are done using the cliToolKit.py (phardwareitk.CLI.cliToolKit).***
 
-NOTE: phardwareitk.Extensions.HyperIn.inputH is a fully custom input function that doesn't use Python's input. Hence, some important factors are to NOTE -
+***NOTE: phardwareitk.Extensions.HyperIn.inputH is a fully custom input function that doesn't use Python's input. Hence, some important factors are to NOTE -***
 
-a. It is still Under Enhancements and if any bug occurs please provide a detailed explanation in [https://github/AkshuDev/PHardwareITK/Issues].
-b. It requires a time sleep to prevent CPU Hogging, the cpuHogging parameter in the function is defined to be 0.005 seconds or 5 milliseconds, you cannot go under 3 milliseconds or 0.003 seconds, as it is very dangerous for the CPU to do so.
+***a. If any bug occurs please provide a detailed explanation in [https://github/AkshuDev/PHardwareITK/Issues].***
+***b. It requires a time sleep to prevent CPU Hogging, the cpuHogging parameter in the function is defined to be 0.005 seconds or 5 milliseconds, you cannot go under 3 milliseconds or 0.003 seconds, as it is very dangerous for the CPU to do so.***
 
 Key features:
 
@@ -267,7 +275,7 @@ High-level functions for file manipulation and data storage.
    
 HGame is an alternative to Pygame, providing a more flexible framework for game development. It supports multiple rendering backends, including PHardwareITK.GUI, Tkinter, OpenGL, and SDL2, making it highly cross-platform.
 
-NOTE: Not yet ready for use, just use GUI toolkit for the time.
+***NOTE: Not yet ready for use, just use GUI toolkit for the time.***
 
 Key features:
 
@@ -293,7 +301,7 @@ Not Required Dependencies ->
 2. PySDL2-DLL (**pip install pysdl2-dll**)
 3. PyOpenGL (**pip install PyOpenGL**)
 
-NOTE: All these are for the gui toolkit.
+***NOTE: All these are for the gui toolkit, if you want you can use the native PheonixIon framework instead***
 
 # Contributing
 
@@ -311,4 +319,4 @@ Open a pull request with a description of your changes.
 
 PHardwareITK is licensed under the MIT License. Feel free to use, modify, and distribute the software under the terms of this license.
 
-# For more information, refer to the official documentation or reach out to us through the repository issues page.
+#### For more information, refer to the official documentation or reach out to us through the repository issues page.
