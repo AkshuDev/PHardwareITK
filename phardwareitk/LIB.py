@@ -1,6 +1,9 @@
+"""Provides almost all file paths in the module"""
+
 import os
 
 class Paths:
+    """File Paths and Folder paths"""
     # NOEXT Files are to be made without the use of the foldername.
     #Folders
     phardwareitk = os.path.dirname(os.path.abspath(__file__))

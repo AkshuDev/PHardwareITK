@@ -1,3 +1,17 @@
+"""PENV stands for Pheonix Environment, it is a full virtual machine requiring no dependencies, it is capable of loading multiple OS made in either .py (python) or .vasm (Virtual Assembly). (NOTE: Learn more about .vasm from PVCpu)
+
+It has a BIOS, it is capable of loading a 512-byte or less .vasm/.py file with AA55 signature. If it is a .py file it is run in complete restriction and can call the BIOS via -
+```python
+__int__(code:int)
+```
+
+PENV also has GUI capabilites and Driver support. (NOTE: Currently remapping the entire FileSystem so please wait till it is ready!)
+
+PENV provides AOS:PENV by default, it is an OS that uses CLI and can run .aosf (AOS Executable File) and .caosf (Compressed AOS Executable File).
+
+You can upgrade to AOS++:PENV for free but it will use more resources. It will provide GUI support and even Extension support.
+"""
+
 import os
 import sys
 import subprocess

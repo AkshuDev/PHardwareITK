@@ -28,6 +28,7 @@ def try_load_library(lib_names:list):
     return None
 
 class PIonWindow:
+    """A Pheonix Ion Window Instance"""
     def __init__(self, title:str, width:int, height:int, flags=None, handle=None) -> None:
         self.title = title
         self.width = width
@@ -220,7 +221,10 @@ class PheonixIon:
         return win
 
     def poll_events(self, win:Union[int, PIonWindow]):
-        """Poll events for the created window."""
+        """Poll events for the created window.
+        
+        Parameters:
+            win (int | PIonWindow): The window index or the PIonWindow class instance"""
         handle = self.get_native_handle(win)
 
         if not handle:

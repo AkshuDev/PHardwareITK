@@ -1,3 +1,5 @@
+"""Allows working with many types of Files"""
+
 import os
 
 import sys

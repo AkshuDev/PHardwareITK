@@ -10,7 +10,7 @@ PHardwareITK, or Pheonix Hardware Interface Toolkit, is a comprehensive Python m
 
 For examples please visit -> [https://github.com/AkshuDev/PHardwareITK] and navigate to the Tests folder.
 
-***IMPORTANT NOTE: THIS README ONLY PROVIDES A BRIEF VIEW, PLEASE USE GITHUB WIKI FOR A MORE COMPREHENSIVE VIEW***
+***IMPORTANT NOTE: THIS README ONLY PROVIDES A BRIEF VIEW, PLEASE USE GITHUB WIKI FOR A MORE COMPREHENSIVE VIEW OR CHECK OUT THE Docs/API.md FILE FOR THE MOST DETAILED VIEW.***
 
 (https://github.com/AkshuDev/PHardwareITK/wiki)
 

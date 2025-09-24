@@ -1,3 +1,5 @@
+"""Provides many extensions"""
+
 from typing import *
 
 import os

@@ -9,6 +9,7 @@ NULL = 0x0
 
 #types
 class CInt:
+    """Base Int class providing all functions"""
     def __init__(self, value:int=0):
         self.value = self._wrap()
 
@@ -41,6 +42,7 @@ class CInt:
         return type(self)(self.value / int(val))
 
     def to_ctypes(self):
+        """Returns CTypes compatible instance."""
         if self.size == 1:
             if self.signed:
                 return ctypes.c_int8(self.value)
@@ -65,11 +67,13 @@ class CInt:
             raise ValueError(f"No such C Type (INT) with size -> {self.size}")
 
 class CUint(CInt):
+    """Base Unsigned int class providing all functions"""
     def __init__(self, value:int):
         self.signed = True
         super().__init__(value)
 
 class CUint8(CUint):
+    """Unsigned Int8 (uint8_t)"""
     def __init__(self, value:int):
         self.size = 1
         self.min_value = 0x0
@@ -77,6 +81,7 @@ class CUint8(CUint):
         super().__init__(value)
 
 class CUint16(CUint):
+    """Unsigned int16 (uint16_t)"""
     def __init__(self, value:int):
         self.size = 2
         self.min_value = 0x0
@@ -84,6 +89,7 @@ class CUint16(CUint):
         super().__init__(value)
 
 class CUint32(CUint):
+    """Unsigned int32 (uint32_t)"""
     def __init__(self, value:int):
         self.size = 4
         self.min_value = 0x0
@@ -91,6 +97,7 @@ class CUint32(CUint):
         super().__init__(value)
 
 class CUint64(CUint):
+    """Unsigned int64 (uint64_t)"""
     def __init__(self, value:int):
         self.size = 8
         self.min_value = 0x0
@@ -98,6 +105,7 @@ class CUint64(CUint):
         super().__init__(value)
 
 class CInt8(CInt):
+    """Int8 (int8_t)"""
     def __init__(self, value:int):
         self.size = 1
         self.min_value = 0x7F
@@ -105,6 +113,7 @@ class CInt8(CInt):
         super().__init__(value)
 
 class CInt16(CInt):
+    """Int16 (int16_t)"""
     def __init__(self, value:int):
         self.size = 2
         self.min_value = 0x7FFF
@@ -112,6 +121,7 @@ class CInt16(CInt):
         super().__init__(value)
 
 class CInt32(CInt):
+    """Int32 (int32_t)"""
     def __init__(self, value:int):
         self.size = 4
         self.min_value = 0x7FFFFFFF
@@ -119,6 +129,7 @@ class CInt32(CInt):
         super().__init__(value)
 
 class CInt64(CInt):
+    """Int64 (int64_t)"""
     def __init__(self, value:int):
         self.size = 8
         self.min_value = 0x7FFFFFFFFFFFFFFF
@@ -126,6 +137,7 @@ class CInt64(CInt):
         super().__init__(value)
 
 class Void:
+    """Void (void)"""
     def __init__(self):
         self.value = None  # always None
 
@@ -133,20 +145,24 @@ class Void:
         return "void"
 
     def to_ctypes(self):
+        """Returns CTypes compatible instance."""
         import ctypes
         return None
 
 class Pointer:
+    """A pointer (*)"""
     def __init__(self, base_type, value=None):
         self.base_type = base_type
         self.value = value  # can be None initially
 
     def deref(self):
+        """Dereferences the pointer (&ptr)"""
         if self.value is None:
             raise ValueError("Pointer is NULL")
         return self.value
 
     def set(self, value):
+        """Sets a value"""
         if not isinstance(value, self.base_type):
             raise TypeError(f"Expected {self.base_type}, got {type(value)}")
         self.value = value
@@ -156,6 +172,7 @@ class Pointer:
         return f"<Pointer to {self.base_type.__name__} at {addr}>"
 
     def to_ctypes(self):
+        """Returns CTypes compatible instance."""
         import ctypes
         if self.value is None:
             return ctypes.c_void_p(None)
@@ -165,6 +182,7 @@ class Pointer:
             return ctypes.c_void_p(id(self.value))  # fallback
 
 class VoidPointer(Pointer):
+    """A Void Pointer (void*)"""
     def __init__(self, value=None):
         super().__init__(Void, value)
 
@@ -179,7 +197,12 @@ class CPrebuilt:
         self.inc_dirs = []
 
     def include(self, path:str, include_dirs: Union[str, list]="", ignore_includes:bool=False):
-        """Includes a header file and auto resolves all dependencies, functions, macros and conditionals"""
+        """Includes a header file and auto resolves all dependencies, functions, macros and conditionals
+        
+        Parameters:
+            path (str): Path to the file to be resolved. Path can be absolute or relative to cwd or relative to any of the paths in include_dirs (NOTE: INCLUDE_DIRS ARE SAVED PER INSTANCE).
+            include_dirs (str | list): Either a single path to any include directory or a list containing multiple include directory paths. Defaults to ''
+            ignore_includes (bool): Wether to ignore include statements. Defaults to False."""
         if isinstance(include_dirs, str):
             self.inc_dirs.append(include_dirs)
         elif isinstance(include_dirs, list):
@@ -205,7 +228,11 @@ class CPrebuilt:
         self.parse(content, ignore_includes)
 
     def parse(self, text:str, ignore_includes:bool=False):
-        """Parse C header text for functions, macros, and conditionals"""
+        """Parse C header text for functions, macros, and conditionals
+        
+        Parameters:
+            text (str): The data to parse.
+            ignore_includes (bool): Wether to ignore include statements. Defaults to False."""
         lines = text.splitlines()
         buffer = []
         in_comment = False

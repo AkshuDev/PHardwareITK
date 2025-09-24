@@ -1,3 +1,5 @@
+"""Provides Command Line Interface Tools"""
+
 import os
 
 import sys

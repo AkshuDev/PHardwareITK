@@ -1,3 +1,5 @@
+"""Many Prebuilt and Custom Errors (You can create one using this also)"""
+
 import os
 
 import sys

@@ -1,5 +1,5 @@
 """
-HyperPython is a Extension in PHardwareITK created by one teen. (Pheonix Studios (Akshobhya)).
+HyperPython is a Extension in PHardwareITK created by (Pheonix Studios (Akshobhya)).
 This converts Python code to C/ASM.
 
 Working on -> Compiler

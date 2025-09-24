@@ -1,3 +1,5 @@
+"""Provides System Functionality"""
+
 import os
 
 import sys

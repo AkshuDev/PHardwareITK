@@ -1,3 +1,3 @@
-# Pheonix Hardware Interface Tool Kit
-# PHardwareITK
+"""Pheonix Hardware Interface Tool Kit - 
+PHardwareITK"""
 

@@ -1,3 +1,5 @@
+"""Graphical User Interface Backends and SubModules"""
+
 import platform
 
 import sys
