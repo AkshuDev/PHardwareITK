@@ -8,41 +8,64 @@ if not os.path.dirname(os.path.abspath(__file__)) in sys.path:
 
 from C import *
 
+do_print_exception = False
+
+def set_exception_print(val:bool) -> None:
+    """True for printing exception, False for otherwise"""
+    global do_print_exception
+    do_print_exception = val
+    
+def print_exception(exception) -> None:
+    """Prints exception provided based on the do_print_exception, whose value is setted by set_exception_print function"""
+    global do_print_exception
+    if do_print_exception:
+        print(exception)
+
 SEEK_SET = 0
 SEEK_CUR = 1
 SEEK_END = 2
 
+reset_mem(300) # 300 bytes for smooth operation
+
 _IO_FILE = {
     "_IO_read_ptr": {
-        "type": Pointer[Char],
+        "type": Pointer,
+        "ptr_to": Char,
         "value": None
     },
     "_IO_read_end": {
-        "type": Pointer[Char],
+        "type": Pointer,
+        "ptr_to": Char,
         "value": None
     },
     "_IO_read_base": {
-        "type": Pointer[Char],
+        "type": Pointer,
+        "ptr_to": Char,
         "value": None
     },
     "_IO_write_base": {
-        "type": Pointer[Char],
+        "type": Pointer,
+        "ptr_to": Char,
         "value": None
     },
     "_IO_write_ptr": {
-        "type": Pointer[Char],
+        "type": Pointer,
+        "ptr_to": Char,
         "value": None
     },
     "_IO_write_end": {
-        "type": Pointer[Char],
+        "type": Pointer,
+        "ptr_to": Char,
         "value": None
     },
     "_IO_buf_base": {
-        "type": Pointer[Char],
+        "type": Pointer,
+        "ptr_to": Char,
         "value": None
     },
     "_IO_buf_end": {
-        "type": Pointer[Char],
+        "type": Pointer,
+        "ptr_to": Char,
         "value": None
     },
     "_fileno": {
@@ -88,7 +111,8 @@ def fopen(path:Pointer[Char], mode:Pointer[Char]) -> Union[Pointer[FILE], int]:
 
     try:
         fd = open(filename, mode)
-    except PermissionError:
+    except PermissionError as pe:
+        print_exception(pe)
         return -3
 
     if fd is None:
@@ -108,7 +132,7 @@ def fopen(path:Pointer[Char], mode:Pointer[Char]) -> Union[Pointer[FILE], int]:
     buf_base = malloc(buffer_size)
 
     # Allocate FILE struct
-    file = FILE(_IO_FILE)
+    file = Struct(_IO_FILE)
     # set read values first
     file.set("_IO_read_ptr", buf_base)
     file.set("_IO_read_end", buf_base) # empty buffer at the start
@@ -127,6 +151,7 @@ def fopen(path:Pointer[Char], mode:Pointer[Char]) -> Union[Pointer[FILE], int]:
     try:
         file.set("_fileno", fd.fileno())
     except Exception as e:
+        print_exception(e)
         file.set("_fileno", -1)
 
     file.set("_blksize", block_size)
@@ -171,6 +196,7 @@ def fclose(file_:Pointer[FILE]) -> int:
 
         return 0
     except Exception as e:
+        print_exception(e)
         return -1
 
 def ftell(file: Pointer[FILE]) -> int:
@@ -184,10 +210,15 @@ def ftell(file: Pointer[FILE]) -> int:
     try:
         # Dereference the pointer
         file_struct: Struct = file.dereference()
-        out = file_struct.access("_IO_read_ptr") - file_struct.access("_IO_read_base")
+        fd = _open_files.get(file_struct.access("_fileno"))
+        if not fd:
+            del file_struct
+            return -1
+        out = fd.tell()
         del file_struct
         return out
     except Exception as e:
+        print_exception(e)
         return -1
 
 def fflush(file: Pointer[FILE]) -> int:
@@ -211,6 +242,7 @@ def fflush(file: Pointer[FILE]) -> int:
         del file_struct
         return 0
     except Exception as e:
+        print_exception(e)
         return -1
 
 def fseek(file: Pointer[FILE], offset: int, whence: int) -> int:
@@ -237,6 +269,7 @@ def fseek(file: Pointer[FILE], offset: int, whence: int) -> int:
         del file_struct
         return 0
     except Exception as e:
+        print_exception(e)
         return -1
 
 def fread(dest: Pointer[Void], size: Union[int, Size_t], nmemb: Union[int, Size_t], file_ptr: Pointer[FILE]) -> int:
@@ -287,6 +320,7 @@ def fread(dest: Pointer[Void], size: Union[int, Size_t], nmemb: Union[int, Size_
         return len(data) // size
 
     except Exception as e:
+        print_exception(e)
         return -1
 
 def fwrite(src: Pointer[Void], size: Union[int, Size_t], nmemb: Union[int, Size_t], file_ptr: Pointer[FILE]) -> int:
@@ -341,6 +375,7 @@ def fwrite(src: Pointer[Void], size: Union[int, Size_t], nmemb: Union[int, Size_
         return len(data) // size
 
     except Exception as e:
+        print_exception(e)
         return -1
 
 def remove(filename: Pointer[Char]) -> int:
@@ -354,11 +389,14 @@ def remove(filename: Pointer[Char]) -> int:
     try:
         os.remove(get_string(filename))
         return 0
-    except FileNotFoundError:
+    except FileNotFoundError as fe:
+        print_exception(fe)
         return -2
-    except PermissionError:
+    except PermissionError as pe:
+        print_exception(pe)
         return -3
     except Exception as e:
+        print_exception(e)
         return -1
 
 def rename(old_filename: Pointer[Char], new_filename: Pointer[Char]) -> int:
@@ -374,10 +412,13 @@ def rename(old_filename: Pointer[Char], new_filename: Pointer[Char]) -> int:
     try:
         os.rename(get_string(old_filename), get_string(new_filename))
         return 0
-    except FileNotFoundError:
+    except FileNotFoundError as fe:
+        print_exception(fe)
         return -2
-    except PermissionError:
+    except PermissionError as pe:
+        print_exception(pe)
         return -3
     except Exception as e:
+        print_exception(e)
         return -1
 

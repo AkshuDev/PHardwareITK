@@ -14,7 +14,8 @@ from Extensions.C_IO import *
 
 PBFS_HEADER = {
 	"Magic": {
-		"type": Pointer[Char],
+		"type": Pointer,
+		"ptr_type": Char,
 		"value": None
 	},
 
@@ -27,7 +28,8 @@ PBFS_HEADER = {
 		"value": None
 	},
 	"Disk_Name": {
-		"type": Pointer[Char],
+		"type": Pointer,
+		"ptr_type": Char,
 		"value": None
 	},
 	"TimeStamp": {
@@ -67,7 +69,9 @@ PBFS_HEADER = {
 
 PBFS_FILE_TABLE_ENTRY = {
 	"Name": {
-		"type": Array[Char, 128],
+		"type": Array,
+		"array_type": Char,
+		"array_size": 128,
 		"value": None
 	},
 	"File_Data_Offset": {
@@ -144,7 +148,9 @@ PBFS_PERMISSION_TABLE_ENTRY = {
 
 PBFS_FILE_TREE_ENTRY = {
 	"Name": {
-		"type": Array[Char, 20],
+		"type": Array,
+		"array_type": Char,
+		"array_size": 20,
 		"value": None
 	}
 }
@@ -324,7 +330,8 @@ DRIVE_PARAMETERS = {
 
 PBFS_FILE_LIST_ENTRY = {
 	"Name": {
-		"type": Pointer[Char],
+		"type": Pointer,
+		"ptr_type": Char,
 		"value": None
 	},
 	"lba": {
@@ -338,7 +345,48 @@ PBFS_FILE_LIST_ENTRY = {
 	uint64_t lba;
 } PBFS_FileListEntry;"""
 
+memsize = 64
+
+def validate_disk(path: str) -> bool:
+    """Validates the Drive"""
+    global size
+    
+    if not os.path.exists(path):
+        return False
+    
+    path = make_string(path)
+    mode = make_string("rb")
+    
+    drive:Pointer[FILE] = fopen(path, mode)
+    PBFS_Header = Struct(PBFS_HEADER)
+    fseek(drive, 0, SEEK_END)
+    size = ftell(drive)
+    fseek(drive, 0, SEEK_SET)
+    buffer_ = malloc(size)
+    buffer_.cast(Char)
+    fread(buffer_, size, 1, drive)
+    err = PBFS_Header.fill_b(read(buffer_, size))
+    if err == -1:
+        print("Incorrect data in file: Validation Failed!")
+        free(buffer_)
+        fclose(drive)
+        return False
+
+    magic = PBFS_Header.access("Magic")
+    magic_val = get_string(magic)
+    print(magic_val)
+    if not magic_val == b"PBFS\x00\x00":
+        print("Signature doesn't Match! Validation failed!")
+        free(buffer_)
+        fclose(drive)
+        return False
+
+    free(buffer_)
+    fclose(drive)
+    return True
+
 def format_disk(path:str, total_blocks:int=2048, block_size:int=512, disk_name:bytes=b'SSD-PBFS-VIRTUAL') -> int:
+	"""Formates the Drive"""
 	print("Formatting disk...")
 	path = make_string(path)
 	mode = make_string("wb+")
@@ -350,17 +398,21 @@ def format_disk(path:str, total_blocks:int=2048, block_size:int=512, disk_name:b
 	PBFS_Header.set("Block_Size", Uint32_t(block_size))
 	PBFS_Header.set("Total_Blocks", Uint32_t(total_blocks))
 	PBFS_Header.set("Disk_Name", make_string(disk_name))
-	PBFS_Header.set("Timestamp", Uint64_t(int(time.time())))
+	PBFS_Header.set("TimeStamp", Uint64_t(int(time.time())))
 	PBFS_Header.set("Version", Uint32_t(1))
 	PBFS_Header.set("Entries", Uint32_t(0))
+	PBFS_Header.set("First_Boot_Timestamp", Uint64_t(0))
+	PBFS_Header.set("OS_BootMode", Uint16_t(1))
 
 	print("Writing PBFS Header...")
 	lba1_buff = malloc(block_size)
 
-	PBFS_Header.write_b(lba1_buff)
+	err = PBFS_Header.write_b(lba1_buff)
+	if err < 0:
+	    print("Error Occured, Quitting!")
+	    return -1
 
 	print("Writing PBFS Header to file...")
-	print(f"Writing - \n{read(lba1_buff, block_size)}")
 	fwrite("\x00", 1, block_size, file)
 	fseek(file, block_size + 1, SEEK_SET)
 	fwrite(lba1_buff, block_size, 1, file)
@@ -373,3 +425,27 @@ def format_disk(path:str, total_blocks:int=2048, block_size:int=512, disk_name:b
 
 	return 0
 
+def increase_memsize(size_:int):
+    """Increase the default memory size for this file"""
+    global size
+    size = size_
+    reset_mem(size)
+
+class PBFS:
+    """Python Block File System / Pheonix Block File System"""
+    def __init__(self, drive:str) -> None:
+        self.drive = drive
+        self.files = []
+        self.folders = []
+        
+    def write_file(content:bytes, path:str) -> bool:
+        """Write a file to Drive
+        
+        Parameters:
+            content (bytes): The content of the file
+            path (str): Path of the file
+            
+        Returns:
+            bool: True if successful else False"""
+        
+        

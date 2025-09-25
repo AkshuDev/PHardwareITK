@@ -20,6 +20,7 @@ SystemData: dict = {}
 drive_data: dict = {}
 
 DRIVE_PATH = os.path.join(base_path, "PheonixSSD.pbfs")
+DRIVE_FOLDER = os.path.join(base_path, ".hard_disk")
 
 # Get System Info
 def GetSystemInfoBIOS() -> None:
@@ -71,7 +72,7 @@ def get_drive_data() -> int:
 def search_for_bootloader() -> str:
     """Searches for the bootloader in the drive data directory."""
     # search the directory for file -> boot.info
-    bootinfo_path = os.path.join(DRIVE_PATH, "boot.info")
+    bootinfo_path = os.path.join(DRIVE_FOLDER, "boot.info")
     bootinfo_found: bool = True
     bootloader_path = ""
     if not os.path.exists(bootinfo_path):
@@ -82,14 +83,14 @@ def search_for_bootloader() -> str:
         # Search the dir for all .py files
         files = []
 
-        for file_ in os.listdir(DRIVE_PATH):
+        for file_ in os.listdir(DRIVE_FOLDER):
             if file_.endswith(".py") or file_.endswith(".vasm"):
                 files.append(file_)
 
         if not files:
             # Search all 512-byte files
-            for file_ in os.listdir(DRIVE_PATH):
-                if os.stat(os.path.join(DRIVE_PATH, file_)).st_size == 512:
+            for file_ in os.listdir(DRIVE_FOLDER):
+                if os.stat(os.path.join(DRIVE_FOLDER, file_)).st_size == 512:
                     files.append(file_)
 
         print("Acceptable maybe bootloader files:", files)
@@ -99,16 +100,16 @@ def search_for_bootloader() -> str:
         buff: bytes = b""
         print("Trying to find bootloader signature (AA55)")
         for file_ in files:
-            with open(os.path.join(DRIVE_PATH, file_), "rb") as f:
+            with open(os.path.join(DRIVE_FOLDER, file_), "rb") as f:
                 f.seek(-4, os.SEEK_END)
                 buff = f.read(4)
                 if buff == b"AA55":
-                    bootloader_path = os.path.join(DRIVE_PATH, file_)
-                if buff == b"A55\n":
+                    bootloader_path = os.path.join(DRIVE_FOLDER, file_)
+                if buff == b"A55\n": #Incase of auto newline
                     f.seek(-5, os.SEEK_END)
                     buff = f.read(4)
                     if buff == b"AA55":
-                        bootloader_path = os.path.join(DRIVE_PATH, file_)
+                        bootloader_path = os.path.join(DRIVE_FOLDER, file_)
 
         # Make bootinfo file
         if not bootloader_path:

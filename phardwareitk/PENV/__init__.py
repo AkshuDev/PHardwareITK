@@ -17,10 +17,10 @@ import sys
 import subprocess
 
 base_path = os.path.join(os.path.dirname(os.path.abspath(__file__)))
-module_path = os.path.join(base_path, "..")
+module_path = os.path.join(base_path, "..", "..")
 
-if not module_path in sys.path:
-    sys.path.append(module_path)
+if module_path not in sys.path:
+    sys.path.insert(0, module_path)
 
 from phardwareitk.Memory import Memory as memory
 from phardwareitk.PENV.shared import *
@@ -71,12 +71,18 @@ def start_penv(
     from phardwareitk.PENV import PBFS
     from phardwareitk.PENV import bios
 
-    reset_mem(process_ram_size, debug=True)
+    memsize_part = process_ram_size // 4
+
+    reset_mem(memsize_part, debug=True)
+    PBFS.increase_memsize(memsize_part)
 
     cmem = get_memory()
 
-    if not os.path.exists(PBFS_DISK):
+    if PBFS.validate_disk(PBFS_DISK) == False:
         print("Creating PBFS Disk...")
-        PBFS.format_disk(PBFS_DISK, total_blocks, block_size, disk_name)
-
-
+        err = PBFS.format_disk(PBFS_DISK, total_blocks, block_size, disk_name)
+        if err < 0:
+            exit(err)
+    
+    bootloader = bios.search_for_bootloader()
+    print(bootloader)
