@@ -289,13 +289,13 @@ PENV stands for Pheonix Environment and it is a full Virtual Machine made via Pu
 
 Key Features:
 
-Uses Pheonix Block File System \
-Comes with AOS and AOS++ free of any costs \
-Mimics real systems \
-Made using Pure Python \
-Has GUI/Framebuffer support \
-Allows custom OS \
-Comes with prebuilt drivers \
+Uses Pheonix Block File System. \
+Comes with AOS and AOS++ free of any costs. \
+Mimics real systems. \
+Made using Pure Python. \
+Has GUI/Framebuffer support. \
+Allows custom OS. \
+Comes with prebuilt drivers.
 
 10. Dependencies.py
     
@@ -334,4 +334,5 @@ Open a pull request with a description of your changes.
 PHardwareITK is licensed under the MIT License. Feel free to use, modify, and distribute the software under the terms of this license.
 
 #### For more information, refer to the official documentation or reach out to us through the repository issues page.
+
 
