@@ -283,7 +283,21 @@ Multiple rendering backends. \
 Cross-platform game development support. \
 Easy-to-use game object management and event handling.
 
-9. Dependencies.py
+9. PENV
+
+PENV stands for Pheonix Environment and it is a full Virtual Machine made via Pure Python. It has everything needed, and it runs .vasm (Virtual assembly) and .py (Python) files only. It has GUI support and a lot. (For more info check the Docs/API.md). It comes with AOS OS. (Please refer to the Docs/API.md for a better understanding of PENV)
+
+Key Features:
+
+Uses Pheonix Block File System \
+Comes with AOS and AOS++ free of any costs \
+Mimics real systems \
+Made using Pure Python \
+Has GUI/Framebuffer support \
+Allows custom OS \
+Comes with prebuilt drivers \
+
+10. Dependencies.py
     
 The Dependencies.py file contains a list of all required libraries and modules for PHardwareITK. This file ensures that any missing dependencies are noted and can be easily installed. NOTE: All requirements are default modules. This files Exisits to install them incase, they are deleted.
 
@@ -320,3 +334,4 @@ Open a pull request with a description of your changes.
 PHardwareITK is licensed under the MIT License. Feel free to use, modify, and distribute the software under the terms of this license.
 
 #### For more information, refer to the official documentation or reach out to us through the repository issues page.
+
