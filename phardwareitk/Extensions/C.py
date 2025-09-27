@@ -2,6 +2,7 @@
 
 from typing import *
 import sys
+import errno
 import os
 
 MODULE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
@@ -749,8 +750,8 @@ def malloc(size: Union[int, Size_t]) -> Pointer[Void]:
     return Pointer(Void, addr + 8)
 
 
-def free(ptr: Pointer) -> int:
-    """Free memory (doesn't delete pointer)"""
+def free(ptr: Pointer, chunk_size:int=1024*16) -> int:
+    """Free memory (doesn't delete pointer). This frees memory in chunks to be memory safe and default chunk size if 16KB"""
     addr = ptr.pointer_address
     size = get_mem_size()
 
@@ -760,13 +761,18 @@ def free(ptr: Pointer) -> int:
         )
 
     size = get_size_metadata(addr - 8)
-
-    set_mem(addr, size, UNINITIALIZED * size)
+    offset = 0
+    remaining = size
+    
+    while remaining > 0:
+        to_free = min(chunk_size, remaining)
+        set_mem(addr + offset, to_free, UNINITIALIZED * to_free)
+        remaining -= to_free
+        offset += to_free
 
     FREE_ADDR[addr] = size
 
     return 0
-
 
 def calloc(nmemb: Union[int, Size_t], size: Union[int, Size_t]) -> Pointer[Void]:
     """Allocate memory and set all values to 0"""
@@ -947,7 +953,10 @@ class Struct:
         {
                 '<Name>': {
                         'type': <type in form of one of the class here>,
-                        'value': <value>
+                        'value': <value>,
+                        'ptr_type': <type of pointer. NOTE: Only if your 'type' is a Pointer and this is Optional, it will default to Void>,
+                        'array_type': <type of array. NOTE: Only if your 'type' is a Array>,
+                        'array_size': <size of array. NOTE: Only if your 'type' is a Array>
                 }
         }
         """
@@ -1012,6 +1021,7 @@ class Struct:
         return 0
 
     def get_size(self) -> int:
+        """Gets the size of the struct"""
         self.size = 0
         for key, value in self.structure.items():
             self.size += sizeof(value["type"]).bytes
@@ -1073,13 +1083,25 @@ class Struct:
         data = file.read(self.size)
         return self.fill_b(data, byteorder)
 
-    def write_b(self, buffer_: Pointer[Void]) -> int:
+    def write_b(self, buffer_: Pointer[Void], max_memory_usage:int=1024*1024*64) -> int:
+        """Writes the filled structure to any point in memory.
+        
+        Parameters:
+            buffer_ (Pointer[Void]): The address in memory to write to
+            max_memory_usage (int): The maximum memory usage by this function to prevent crashes to Python/Terminal/Environment. Default is 64 MB / 1024*1024*64 bytes.
+            
+        Returns:
+            int: Return Code. 0 Means success.
+        """
         if self.size < 1:
             return -1  # Size = 0
 
         addr = buffer_.pointer_address
-
+        offset = 0
         self.get_size()
+        
+        MAX_WRITE = 1024 # 1KB
+        total_written = 0
         
         for key, val in self.structure.items():
             try:
@@ -1093,10 +1115,26 @@ class Struct:
                         size = data.size
                     else:
                         size = len(data)
-                    print(size)
-                    write(buffer_, data, size)
+                        
+                    if total_written + size > max_memory_usage:
+                        print("[CRITICAL ERROR] Memory Usage Exceeded, Stopping immedietly: C.Struct.write_b")
+                        sys.exit(errno.ENO_MEM)
+                    
+                    if size > MAX_WRITE:
+                        for i in range(0, size, MAX_WRITE):
+                            write(Pointer(Void, addr + offset + i), data[i:i + MAX_WRITE], min(MAX_WRITE, size-i))
+                    else:
+                        write(Pointer(Void, addr + offset), data, size)
+                    offset += size
+                    total_written += size
                 elif not isinstance(value, Array):
-                    write(buffer_, read(Pointer(Void, value), size), size)
+                    if total_written + size > max_memory_usage:
+                        print("[CRITICAL ERROR] Memory Usage Exceeded, Stopping immedietly: C.Struct.write_b")
+                        sys.exit(errno.ENO_MEM)
+                    
+                    write(Pointer(Void, addr + offset), read(Pointer(Void, value), size), size)
+                    offset += size
+                    total_written += size
                 else:
                     print("Array are not yet supported")
             except Exception as e:

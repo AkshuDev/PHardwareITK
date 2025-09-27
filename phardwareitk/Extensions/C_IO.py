@@ -25,8 +25,6 @@ SEEK_SET = 0
 SEEK_CUR = 1
 SEEK_END = 2
 
-reset_mem(300) # 300 bytes for smooth operation
-
 _IO_FILE = {
     "_IO_read_ptr": {
         "type": Pointer,
@@ -323,14 +321,15 @@ def fread(dest: Pointer[Void], size: Union[int, Size_t], nmemb: Union[int, Size_
         print_exception(e)
         return -1
 
-def fwrite(src: Pointer[Void], size: Union[int, Size_t], nmemb: Union[int, Size_t], file_ptr: Pointer[FILE]) -> int:
+def fwrite(src: Pointer[Void], size: Union[int, Size_t], nmemb: Union[int, Size_t], file_ptr: Pointer[FILE], chunk_size:int=4096) -> int:
     """fwrite - Write data to a file
-
+    
     Args:
         src (Pointer[Void]): The source pointer containing data to write
         size (int): size of each element to write
         nmemb (int): number of elements to write
         file_ptr (Pointer[FILE]): Pointer to the FILE struct
+        chunk_size (int): Writing files in chunk to prevent overuse of memory. Defaults to 4096 bytes / 4KB
 
     Returns:
         int: Number of elements successfully written, or -1 on failure
@@ -353,22 +352,28 @@ def fwrite(src: Pointer[Void], size: Union[int, Size_t], nmemb: Union[int, Size_
         fd:TextIO = _open_files.get(fileno, None)
         if fd is None:
             return -1
-
-        # Read data from the source pointer
-        data = read(src, total_bytes)
-
-        if not 'b' in fd.mode:
-            try:
-                data = data.decode('utf-8')
-            except UnicodeDecodeError:
-                return -1
-
-        # Write data to the file
-        fd.write(data)
+        
+        written = 0
+        
+        while written < total_bytes:
+            # Read data from the source pointer
+            to_write = min(chunk_size, total_bytes - written)
+            
+            data = read(src + written, to_write)
+    
+            if not 'b' in fd.mode:
+                try:
+                    data = data.decode('utf-8')
+                except UnicodeDecodeError:
+                    return -1
+    
+            # Write data to the file
+            fd.write(data)
+            written += to_write
 
         # Update the write pointer
         buf_base = file.access("_IO_buf_base")
-        file.set("_IO_write_ptr", Pointer(buf_base.address + len(data)))
+        file.set("_IO_write_ptr", Pointer(buf_base.address + written))
 
         del file
 

@@ -86,3 +86,6 @@ def start_penv(
     
     bootloader = bios.search_for_bootloader()
     print(bootloader)
+    
+if __name__ == "__main__":
+    start_penv()

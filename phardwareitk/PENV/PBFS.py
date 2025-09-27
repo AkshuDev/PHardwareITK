@@ -347,7 +347,7 @@ PBFS_FILE_LIST_ENTRY = {
 
 memsize = 64
 
-def validate_disk(path: str) -> bool:
+def validate_disk(path: str, block_size:int=512) -> bool:
     """Validates the Drive"""
     global size
     
@@ -362,9 +362,9 @@ def validate_disk(path: str) -> bool:
     fseek(drive, 0, SEEK_END)
     size = ftell(drive)
     fseek(drive, 0, SEEK_SET)
-    buffer_ = malloc(size)
+    buffer_ = malloc(block_size)
     buffer_.cast(Char)
-    fread(buffer_, size, 1, drive)
+    fread(buffer_, block_size, 1, drive)
     err = PBFS_Header.fill_b(read(buffer_, size))
     if err == -1:
         print("Incorrect data in file: Validation Failed!")
@@ -417,7 +417,7 @@ def format_disk(path:str, total_blocks:int=2048, block_size:int=512, disk_name:b
 	fseek(file, block_size + 1, SEEK_SET)
 	fwrite(lba1_buff, block_size, 1, file)
 
-	free(lba1_buff)
+	#free(lba1_buff) # This is freeing a lot and crashing my environment (please wait till fix, btw the issue is due to Struct.write_b)
 	print("Done formatting disk...")
 	fclose(file)
 
