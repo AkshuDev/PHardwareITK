@@ -7,51 +7,21 @@ import struct
 MPATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 
 if not MPATH in sys.path:
-	sys.path.append(MPATH)
+    sys.path.append(MPATH)
 
 from Extensions.C import *
 from Extensions.C_IO import *
 
 PBFS_HEADER = {
-	"Magic": {
-		"type": Pointer,
-		"ptr_type": Char,
-		"value": None
-	},
-
-	"Block_Size": {
-		"type": Uint32_t,
-		"value": None
-	},
-	"Total_Blocks": {
-		"type": Uint32_t,
-		"value": None
-	},
-	"Disk_Name": {
-		"type": Pointer,
-		"ptr_type": Char,
-		"value": None
-	},
-	"TimeStamp": {
-		"type": Uint64_t,
-		"value": None
-	},
-	"Version": {
-		"type": Uint32_t,
-		"value": None
-	},
-	"First_Boot_Timestamp": {
-		"type": Uint64_t,
-		"value": None
-	},
-	"OS_BootMode": {
-		"type": Uint16_t,
-		"value": None
-	},
-	"Entries": {
-		"type": Uint32_t,
-		"value": None
-	}
+    "Magic": {"type": Pointer, "ptr_type": Char, "value": None},
+    "Block_Size": {"type": Uint32_t, "value": None},
+    "Total_Blocks": {"type": Uint32_t, "value": None},
+    "Disk_Name": {"type": Pointer, "ptr_type": Char, "value": None},
+    "TimeStamp": {"type": Uint64_t, "value": None},
+    "Version": {"type": Uint32_t, "value": None},
+    "First_Boot_Timestamp": {"type": Uint64_t, "value": None},
+    "OS_BootMode": {"type": Uint16_t, "value": None},
+    "Entries": {"type": Uint32_t, "value": None},
 }
 
 """typedef struct {
@@ -68,24 +38,10 @@ PBFS_HEADER = {
 } __attribute__((packed)) PBFS_Header; // Total = 68 bytes"""
 
 PBFS_FILE_TABLE_ENTRY = {
-	"Name": {
-		"type": Array,
-		"array_type": Char,
-		"array_size": 128,
-		"value": None
-	},
-	"File_Data_Offset": {
-		"type": Uint64_t,
-		"value": None
-	},
-	"Permission_Table_Offset": {
-		"type": Uint64_t,
-		"value": None
-	},
-	"Block_Span": {
-		"type": Uint64_t,
-		"value": None
-	}
+    "Name": {"type": Array, "array_type": Char, "array_size": 128, "value": None},
+    "File_Data_Offset": {"type": Uint64_t, "value": None},
+    "Permission_Table_Offset": {"type": Uint64_t, "value": None},
+    "Block_Span": {"type": Uint64_t, "value": None},
 }
 
 """typedef struct {
@@ -96,42 +52,15 @@ PBFS_FILE_TABLE_ENTRY = {
 } __attribute__((packed)) PBFS_FileTableEntry; // Total = 152 bytes"""
 
 PBFS_PERMISSION_TABLE_ENTRY = {
-	"Read": {
-		"type": Uint16_t,
-		"value": None
-	},
-	"Write": {
-		"type": Uint16_t,
-		"value": None
-	},
-	"Executable": {
-		"type": Uint16_t,
-		"value": None
-	},
-	"Listable": {
-		"type": Uint16_t,
-		"value": None
-	},
-	"Hidden": {
-		"type": Uint16_t,
-		"value": None
-	},
-	"Full_Control": {
-		"type": Uint16_t,
-		"value": None
-	},
-	"Delete": {
-		"type": Uint16_t,
-		"value": None
-	},
-	"Special_Access": {
-		"type": Uint16_t,
-		"value": None
-	},
-	"File_Tree_Offset": {
-		"type": Uint32_t,
-		"value": None
-	}
+    "Read": {"type": Uint16_t, "value": None},
+    "Write": {"type": Uint16_t, "value": None},
+    "Executable": {"type": Uint16_t, "value": None},
+    "Listable": {"type": Uint16_t, "value": None},
+    "Hidden": {"type": Uint16_t, "value": None},
+    "Full_Control": {"type": Uint16_t, "value": None},
+    "Delete": {"type": Uint16_t, "value": None},
+    "Special_Access": {"type": Uint16_t, "value": None},
+    "File_Tree_Offset": {"type": Uint32_t, "value": None},
 }
 
 """typedef struct {
@@ -147,12 +76,7 @@ PBFS_PERMISSION_TABLE_ENTRY = {
 } __attribute__((packed)) PBFS_PermissionTableEntry; // Total = 20 bytes"""
 
 PBFS_FILE_TREE_ENTRY = {
-	"Name": {
-		"type": Array,
-		"array_type": Char,
-		"array_size": 20,
-		"value": None
-	}
+    "Name": {"type": Array, "array_type": Char, "array_size": 20, "value": None}
 }
 
 """typedef struct {
@@ -160,30 +84,12 @@ PBFS_FILE_TREE_ENTRY = {
 } __attribute__((packed)) PBFS_FileTreeEntry; // Total = 20 bytes"""
 
 PBFS_DAP = {
-	"size": {
-		"type": Uint8_t,
-		"value": None
-	},
-	"reserved": {
-		"type": Uint8_t,
-		"value": None
-	},
-	"sector_count": {
-		"type": Uint16_t,
-		"value": None
-	},
-	"offset": {
-		"type": Uint16_t,
-		"value": None
-	},
-	"segment": {
-		"type": Uint16_t,
-		"value": None
-	},
-	"lba": {
-		"type": Uint64_t,
-		"value": None
-	}
+    "size": {"type": Uint8_t, "value": None},
+    "reserved": {"type": Uint8_t, "value": None},
+    "sector_count": {"type": Uint16_t, "value": None},
+    "offset": {"type": Uint16_t, "value": None},
+    "segment": {"type": Uint16_t, "value": None},
+    "lba": {"type": Uint64_t, "value": None},
 }
 
 """typedef struct {
@@ -196,38 +102,14 @@ PBFS_DAP = {
 } __attribute__((packed)) PBFS_DAP;"""
 
 PBFS_PERMISSIONS = {
-	"Read": {
-		"type": Uint16_t,
-		"value": None
-	},
-	"Write": {
-		"type": Uint16_t,
-		"value": None
-	},
-	"Executable": {
-		"type": Uint16_t,
-		"value": None
-	},
-	"Listable": {
-		"type": Uint16_t,
-		"value": None
-	},
-	"Hidden": {
-		"type": Uint16_t,
-		"value": None
-	},
-	"Full_Control": {
-		"type": Uint16_t,
-		"value": None
-	},
-	"Delete": {
-		"type": Uint16_t,
-		"value": None
-	},
-	"Special_Access": {
-		"type": Uint16_t,
-		"value": None
-	}
+    "Read": {"type": Uint16_t, "value": None},
+    "Write": {"type": Uint16_t, "value": None},
+    "Executable": {"type": Uint16_t, "value": None},
+    "Listable": {"type": Uint16_t, "value": None},
+    "Hidden": {"type": Uint16_t, "value": None},
+    "Full_Control": {"type": Uint16_t, "value": None},
+    "Delete": {"type": Uint16_t, "value": None},
+    "Special_Access": {"type": Uint16_t, "value": None},
 }
 
 """typedef struct {
@@ -242,34 +124,13 @@ PBFS_PERMISSIONS = {
 } __attribute__((packed)) PBFS_Permissions; // Total = 16 bytes"""
 
 PBFS_LAYOUT = {
-	"Header_Start": {
-		"type": Uint64_t,
-		"value": None
-	},
-	"Header_End": {
-		"type": Uint64_t,
-		"value": None
-	},
-	"Header_BlockSpan": {
-		"type": Uint64_t,
-		"value": None
-	},
-	"Bitmap_Start": {
-		"type": Uint64_t,
-		"value": None
-	},
-	"Bitmap_BlockSpan": {
-		"type": Uint64_t,
-		"value": None
-	},
-	"Bitmap_End": {
-		"type": Uint64_t,
-		"value": None
-	},
-	"Data_Start": {
-		"type": Uint64_t,
-		"value": None
-	}
+    "Header_Start": {"type": Uint64_t, "value": None},
+    "Header_End": {"type": Uint64_t, "value": None},
+    "Header_BlockSpan": {"type": Uint64_t, "value": None},
+    "Bitmap_Start": {"type": Uint64_t, "value": None},
+    "Bitmap_BlockSpan": {"type": Uint64_t, "value": None},
+    "Bitmap_End": {"type": Uint64_t, "value": None},
+    "Data_Start": {"type": Uint64_t, "value": None},
 }
 
 """typedef struct {
@@ -283,38 +144,14 @@ PBFS_LAYOUT = {
 } __attribute__((packed)) PBFS_Layout;"""
 
 DRIVE_PARAMETERS = {
-	"size": {
-		"type": Uint16_t,
-		"value": None
-	},
-	"flags": {
-		"type": Uint16_t,
-		"value": None
-	},
-	"cylinders": {
-		"type": Uint32_t,
-		"value": None
-	},
-	"heads": {
-		"type": Uint32_t,
-		"value": None
-	},
-	"sectors_per_track": {
-		"type": Uint32_t,
-		"value": None
-	},
-	"total_sectors": {
-		"type": Uint64_t,
-		"value": None
-	},
-	"bytes_per_sector": {
-		"type": Uint16_t,
-		"value": None
-	},
-	"reserved": {
-		"type": Array[Uint8_t, 6],
-		"value": None
-	}
+    "size": {"type": Uint16_t, "value": None},
+    "flags": {"type": Uint16_t, "value": None},
+    "cylinders": {"type": Uint32_t, "value": None},
+    "heads": {"type": Uint32_t, "value": None},
+    "sectors_per_track": {"type": Uint32_t, "value": None},
+    "total_sectors": {"type": Uint64_t, "value": None},
+    "bytes_per_sector": {"type": Uint16_t, "value": None},
+    "reserved": {"type": Array[Uint8_t, 6], "value": None},
 }
 
 """typedef struct {
@@ -329,15 +166,8 @@ DRIVE_PARAMETERS = {
 } __attribute__((packed)) DriveParameters;"""
 
 PBFS_FILE_LIST_ENTRY = {
-	"Name": {
-		"type": Pointer,
-		"ptr_type": Char,
-		"value": None
-	},
-	"lba": {
-		"type": Uint64_t,
-		"value": None
-	}
+    "Name": {"type": Pointer, "ptr_type": Char, "value": None},
+    "lba": {"type": Uint64_t, "value": None},
 }
 
 """typedef struct {
@@ -347,23 +177,25 @@ PBFS_FILE_LIST_ENTRY = {
 
 memsize = 64
 
-def validate_disk(path: str, block_size:int=512) -> bool:
+
+def validate_disk(path: str, block_size: int = 512) -> bool:
     """Validates the Drive"""
     global size
-    
+
     if not os.path.exists(path):
         return False
-    
+
     path = make_string(path)
     mode = make_string("rb")
-    
-    drive:Pointer[FILE] = fopen(path, mode)
+
+    drive: Pointer[FILE] = fopen(path, mode)
     PBFS_Header = Struct(PBFS_HEADER)
     fseek(drive, 0, SEEK_END)
     size = ftell(drive)
     fseek(drive, 0, SEEK_SET)
     buffer_ = malloc(block_size)
     buffer_.cast(Char)
+    fseek(drive, block_size, SEEK_SET)
     fread(buffer_, block_size, 1, drive)
     err = PBFS_Header.fill_b(read(buffer_, size))
     if err == -1:
@@ -373,8 +205,7 @@ def validate_disk(path: str, block_size:int=512) -> bool:
         return False
 
     magic = PBFS_Header.access("Magic")
-    magic_val = get_string(magic)
-    print(magic_val)
+    magic_val = read(magic, 6)
     if not magic_val == b"PBFS\x00\x00":
         print("Signature doesn't Match! Validation failed!")
         free(buffer_)
@@ -385,67 +216,74 @@ def validate_disk(path: str, block_size:int=512) -> bool:
     fclose(drive)
     return True
 
-def format_disk(path:str, total_blocks:int=2048, block_size:int=512, disk_name:bytes=b'SSD-PBFS-VIRTUAL') -> int:
-	"""Formates the Drive"""
-	print("Formatting disk...")
-	path = make_string(path)
-	mode = make_string("wb+")
-	file:Pointer[FILE] = fopen(path, mode)
+def format_disk(
+    path: str,
+    total_blocks: int = 2048,
+    block_size: int = 512,
+    disk_name: bytes = b"SSD-PBFS-VIRTUAL",
+) -> int:
+    """Formates the Drive"""
+    print("Formatting disk...")
+    path = make_string(path)
+    mode = make_string("wb+")
+    file: Pointer[FILE] = fopen(path, mode)
 
-	# Now we format it
-	PBFS_Header = Struct(PBFS_HEADER)
-	PBFS_Header.set("Magic", make_string("PBFS\x00\x00"))
-	PBFS_Header.set("Block_Size", Uint32_t(block_size))
-	PBFS_Header.set("Total_Blocks", Uint32_t(total_blocks))
-	PBFS_Header.set("Disk_Name", make_string(disk_name))
-	PBFS_Header.set("TimeStamp", Uint64_t(int(time.time())))
-	PBFS_Header.set("Version", Uint32_t(1))
-	PBFS_Header.set("Entries", Uint32_t(0))
-	PBFS_Header.set("First_Boot_Timestamp", Uint64_t(0))
-	PBFS_Header.set("OS_BootMode", Uint16_t(1))
+    # Now we format it
+    PBFS_Header = Struct(PBFS_HEADER)
+    PBFS_Header.set("Magic", make_string("PBFS\x00\x00"))
+    PBFS_Header.set("Block_Size", Uint32_t(block_size))
+    PBFS_Header.set("Total_Blocks", Uint32_t(total_blocks))
+    PBFS_Header.set("Disk_Name", make_string(disk_name))
+    PBFS_Header.set("TimeStamp", Uint64_t(int(time.time())))
+    PBFS_Header.set("Version", Uint32_t(1))
+    PBFS_Header.set("Entries", Uint32_t(0))
+    PBFS_Header.set("First_Boot_Timestamp", Uint64_t(0))
+    PBFS_Header.set("OS_BootMode", Uint16_t(1))
 
-	print("Writing PBFS Header...")
-	lba1_buff = malloc(block_size)
+    print("Writing PBFS Header...")
+    lba1_buff = malloc(block_size)
 
-	err = PBFS_Header.write_b(lba1_buff)
-	if err < 0:
-	    print("Error Occured, Quitting!")
-	    return -1
+    err = PBFS_Header.write_b(lba1_buff)
+    if err < 0:
+        print("Error Occured, Quitting!")
+        return -1
 
-	print("Writing PBFS Header to file...")
-	fwrite("\x00", 1, block_size, file)
-	fseek(file, block_size + 1, SEEK_SET)
-	fwrite(lba1_buff, block_size, 1, file)
+    print("Writing PBFS Header to file...")
+    fwrite("\x00", 1, block_size, file)
+    fseek(file, block_size, SEEK_SET)
+    fwrite(lba1_buff, block_size, 1, file)
+    fflush(file)
 
-	#free(lba1_buff) # This is freeing a lot and crashing my environment (please wait till fix, btw the issue is due to Struct.write_b)
-	print("Done formatting disk...")
-	fclose(file)
+    free(lba1_buff)
+    print("Done formatting disk...")
+    fclose(file)
 
-	print("Finished!")
+    print("Finished!")
 
-	return 0
+    return 0
 
-def increase_memsize(size_:int):
+
+def increase_memsize(size_: int):
     """Increase the default memory size for this file"""
     global size
     size = size_
     reset_mem(size)
 
+
 class PBFS:
     """Python Block File System / Pheonix Block File System"""
-    def __init__(self, drive:str) -> None:
+
+    def __init__(self, drive: str) -> None:
         self.drive = drive
         self.files = []
         self.folders = []
-        
-    def write_file(content:bytes, path:str) -> bool:
+
+    def write_file(content: bytes, path: str) -> bool:
         """Write a file to Drive
-        
+
         Parameters:
             content (bytes): The content of the file
             path (str): Path of the file
-            
+
         Returns:
             bool: True if successful else False"""
-        
-        

@@ -306,7 +306,7 @@ def fread(dest: Pointer[Void], size: Union[int, Size_t], nmemb: Union[int, Size_
             return 0
 
         # Write data to the destination pointer
-        write(dest, data, total_bytes)
+        write(dest, data, total_bytes, no_meta=True)
 
         # Update the read pointer
         buf_base = file.access("_IO_buf_base")
@@ -354,12 +354,13 @@ def fwrite(src: Pointer[Void], size: Union[int, Size_t], nmemb: Union[int, Size_
             return -1
         
         written = 0
+        srcaddr = src.pointer_address
         
         while written < total_bytes:
             # Read data from the source pointer
             to_write = min(chunk_size, total_bytes - written)
             
-            data = read(src + written, to_write)
+            data = get_mem(srcaddr + written, to_write)
     
             if not 'b' in fd.mode:
                 try:

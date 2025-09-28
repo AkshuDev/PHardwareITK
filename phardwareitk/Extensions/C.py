@@ -112,6 +112,17 @@ def set_mem(addr: int, size_: int, data: bytes) -> None:
     if addr in list(FREE_ADDR.keys()):
         FREE_ADDR.pop(addr)
 
+def write_mem(addr: int, size_: int, data: bytes) -> None:
+    """Writes data to specified address, unlike set_mem, this doesnt create metadata"""
+    global memory
+    global size
+    
+    if addr > size:
+        raise OSError(
+            f"Trying to access memory outside of the virtual memory space using address [{hex(addr)}], while virtual memory has a size of [{hex(size)}]. [ERROR:PHardwareITK:Extensions:C - write_mem]"
+        )
+    
+    memory.write_ram(data, addr, size_)
 
 def get_mem(addr: int, size_: int) -> bytes:
     """Gets memory"""
@@ -743,7 +754,7 @@ def malloc(size: Union[int, Size_t]) -> Pointer[Void]:
     addr = next_alloc
     append_next_alloc(size + 8)
 
-    set_mem(
+    write_mem(
         addr, 8, METADATA_MAGIC + size.to_bytes(4, "little")
     )  # Set the metadata, we don't set the memory to unint because c doesnt either
 
@@ -766,7 +777,7 @@ def free(ptr: Pointer, chunk_size:int=1024*16) -> int:
     
     while remaining > 0:
         to_free = min(chunk_size, remaining)
-        set_mem(addr + offset, to_free, UNINITIALIZED * to_free)
+        write_mem(addr + offset, to_free, UNINITIALIZED * to_free)
         remaining -= to_free
         offset += to_free
 
@@ -814,7 +825,7 @@ def memcpy(
         raise TypeError("Argument size must be a Size_t or a int")
 
     data = get_mem(addr_src, size)
-    set_mem(addr_dest, size, data)
+    write_mem(addr_dest, size, data)
     return Pointer(Void, addr_dest)
 
 
@@ -831,7 +842,7 @@ def memmove(
         raise TypeError("Argument size must be a Size_t or a int")
 
     memcpy(dest, src, size)
-    set_mem(addr_src, size, UNINITIALIZED * size)
+    write_mem(addr_src, size, UNINITIALIZED * size)
     
     del src
 
@@ -849,7 +860,7 @@ def memset(ptr: Pointer[Void], value: int, size: Union[int, Size_t]) -> Pointer[
     value = value.to_bytes(1, "little")
     val = value * size
 
-    set_mem(ptr.pointer_address, size, val)
+    write_mem(ptr.pointer_address, size, val)
 
     return ptr
 
@@ -897,18 +908,21 @@ def memcmp(ptr1: Pointer[Void], ptr2: Pointer[Void], size: Union[int, Size_t]) -
         return 1
 
 
-def write(ptr: Pointer[Void], data: bytes, size: Union[int, Size_t]) -> int:
+def write(ptr: Pointer[Void], data: bytes, size: Union[int, Size_t], no_meta: bool=False) -> int:
     """Writes data to memory"""
     if isinstance(size, Size_t):
         size = size.bytes
 
     if not isinstance(size, int):
         raise TypeError("Argument size must be a Size_t or a int")
+        
+    if no_meta:
+        write_mem(ptr.pointer_address, size, data)
+        return 0
 
     set_mem(ptr.pointer_address, size, data)
 
     return 0
-
 
 def read(ptr: Pointer[Void], size: Union[int, Size_t]) -> bytes:
     """Reads data from memory"""
@@ -1122,9 +1136,9 @@ class Struct:
                     
                     if size > MAX_WRITE:
                         for i in range(0, size, MAX_WRITE):
-                            write(Pointer(Void, addr + offset + i), data[i:i + MAX_WRITE], min(MAX_WRITE, size-i))
+                            write(Pointer(Void, addr + offset + i), data[i:i + MAX_WRITE], min(MAX_WRITE, size-i), no_meta=True)
                     else:
-                        write(Pointer(Void, addr + offset), data, size)
+                        write(Pointer(Void, addr + offset), data, size, no_meta=True)
                     offset += size
                     total_written += size
                 elif not isinstance(value, Array):
@@ -1132,7 +1146,7 @@ class Struct:
                         print("[CRITICAL ERROR] Memory Usage Exceeded, Stopping immedietly: C.Struct.write_b")
                         sys.exit(errno.ENO_MEM)
                     
-                    write(Pointer(Void, addr + offset), read(Pointer(Void, value), size), size)
+                    write(Pointer(Void, addr + offset), read(Pointer(Void, value), size), size, no_meta=True)
                     offset += size
                     total_written += size
                 else:
