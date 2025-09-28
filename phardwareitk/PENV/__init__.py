@@ -55,6 +55,44 @@ def force_os(_os: str, posix_based_os: bool = False) -> None:
         if posix_based_os:
             posix = True
 
+def copy_folder_to_pbfs(pbfs, folder_path: str, reserved_size: int = 0, permissions: tuple = (1,1,1,1,0,0,1,0)):
+    """
+    Recursively copies a folder into PBFS.
+    
+    Args:
+        pbfs (PBFS): The mounted PBFS instance.
+        folder_path (str): Path to the folder to copy.
+        reserved_size (int): Extra space to reserve per file.
+        permissions (tuple): Permissions to apply to all files.
+    """
+    
+    # Normalize folder path
+    folder_path = os.path.abspath(folder_path)
+    base_name = os.path.basename(folder_path)
+    
+    for root, dirs, files in os.walk(folder_path):
+        # Compute relative path inside the drive
+        rel_root = os.path.relpath(root, folder_path)
+        if rel_root == ".":
+            rel_root = ""  # root folder itself
+        
+        # Create folder entries (optional, for hierarchical tree)
+        for d in dirs:
+            folder_rel_path = os.path.join(base_name, rel_root, d).replace("\\", "/")
+            pbfs.make_meta_entry(folder_rel_path + "/", 0, 0, 0, dir_=True)
+        
+        # Copy files
+        for f in files:
+            file_rel_path = os.path.join(base_name, rel_root, f).replace("\\", "/")
+            abs_file_path = os.path.join(root, f)
+            
+            # Read file content
+            with open(abs_file_path, "rb") as fd:
+                content = fd.read()
+            
+            # Write file into PBFS
+            pbfs.write_file(content, file_rel_path, reserved_size=reserved_size, permissions=permissions)
+
 def start_penv(
     max_ram_bytes: int = 2 * 1000000,
     process_ram_size: int = 1 * 1000000,
@@ -65,7 +103,9 @@ def start_penv(
     total_blocks:int = 2048,
     block_size: int = 512,
     disk_name: str = "PheonixSSD",
-    include_uefi: bool = False,
+    include_uefi: bool = True,
+    format_drive: bool = False,
+    os: str = "" # Uses current OS
 ) -> None:
     """Starts Pheonix Virtual Environment"""
     from phardwareitk.PENV import PBFS
@@ -78,14 +118,21 @@ def start_penv(
 
     cmem = get_memory()
 
-    if PBFS.validate_disk(PBFS_DISK) == False:
+    if PBFS.validate_disk(PBFS_DISK, block_size) == False or format_drive:
         print("Creating PBFS Disk...")
         err = PBFS.format_disk(PBFS_DISK, total_blocks, block_size, disk_name)
         if err < 0:
             exit(err)
     
-    bootloader = bios.search_for_bootloader()
-    print(bootloader)
+    fs = PBFS.PBFS(PBFS_DISK, block_size, total_blocks)
+    
+    if not os == "":
+        print("Formatting Drive...")
+        PBFS.format_disk(PBFS_DISK, total_blocks, block_size, disk_name)
+        print("Downloading OS...")
+        copy_folder_to_pbfs(fs, os)
+        print("Downloaded OS...")
+        sys.exit(0)
     
 if __name__ == "__main__":
     start_penv()
