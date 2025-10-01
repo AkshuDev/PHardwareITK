@@ -92,7 +92,7 @@ typedef struct _IO_FILE FILE;"""
 
 FILE = Struct[_IO_FILE]
 
-def fopen(path:Pointer[Char], mode:Pointer[Char]) -> Union[Pointer[FILE], int]:
+def fopen(path:Union[Pointer[Char], str], mode:str) -> Union[Pointer[FILE], int]:
     """fopen - Open a file and return a FILE struct pointer
 
     Arguments:
@@ -384,7 +384,7 @@ def fwrite(src: Pointer[Void], size: Union[int, Size_t], nmemb: Union[int, Size_
         print_exception(e)
         return -1
 
-def remove(filename: Pointer[Char]) -> int:
+def remove(filename: Union[Pointer[Char], str]) -> int:
     """remove - Remove a file
 
     Arguments:
@@ -405,7 +405,7 @@ def remove(filename: Pointer[Char]) -> int:
         print_exception(e)
         return -1
 
-def rename(old_filename: Pointer[Char], new_filename: Pointer[Char]) -> int:
+def rename(old_filename: Union[Pointer[Char], str], new_filename: Union[Pointer[Char], str]) -> int:
     """rename - Rename a file
 
     Arguments:

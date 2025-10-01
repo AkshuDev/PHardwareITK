@@ -182,15 +182,10 @@ def round_up_to_block(size: int, block_size: int = 512) -> int:
 
 def validate_disk(path: str, block_size: int = 512) -> bool:
     """Validates the Drive"""
-    global size
-
     if not os.path.exists(path):
         return False
 
-    path = make_string(path)
-    mode = make_string("rb")
-
-    drive: Pointer[FILE] = fopen(path, mode)
+    drive: Pointer[FILE] = fopen(path, "rb")
     PBFS_Header = Struct(PBFS_HEADER)
     fseek(drive, 0, SEEK_END)
     size = ftell(drive)
@@ -225,17 +220,16 @@ def format_disk(
     disk_name: bytes = b"SSD-PBFS-VIRTUAL",
 ) -> int:
     """Formates the Drive"""
+    reset_mem(memsize) # Always ensure clean slate
     print("Formatting disk...")
-    path = make_string(path)
-    mode = make_string("wb+")
-    file: Pointer[FILE] = fopen(path, mode)
+    file: Pointer[FILE] = fopen(path, "wb+")
 
     # Now we format it
     PBFS_Header = Struct(PBFS_HEADER)
-    PBFS_Header.set("Magic", make_string("PBFS\x00\x00"))
+    PBFS_Header.set("Magic", b"PBFS\x00\x00")
     PBFS_Header.set("Block_Size", Uint32_t(block_size))
     PBFS_Header.set("Total_Blocks", Uint32_t(total_blocks))
-    PBFS_Header.set("Disk_Name", make_string(disk_name))
+    PBFS_Header.set("Disk_Name", disk_name)
     PBFS_Header.set("TimeStamp", Uint64_t(int(time.time())))
     PBFS_Header.set("Version", Uint32_t(1))
     PBFS_Header.set("Entries", Uint32_t(0))
@@ -259,10 +253,26 @@ def format_disk(
     
     # Create bitmap
     print("Creating Bitmap")
-    write(lba_buff, b"\x01\x01\x01"+(b"\x00"*(block_size - 3)), block_size, no_meta=True)
-    space_needed = round_up_to_block(total_blocks, block_size) // block_size
+    
+    def make_bitmap(total_blocks_, reserved_blocks=3):
+        bytes_needed = (total_blocks_ + 7) // 8
+        bitmap = bytearray(bytes_needed)
+        
+        for block in range(reserved_blocks):
+            byte_index = block // 8
+            bit_index = block % 8
+            bitmap[byte_index] |= (1 << bit_index)
+            
+        return bitmap
+    
+    bmap = make_bitmap(total_blocks, 3)
+    space_needed = (total_blocks + 7) // 8
+    
+    write(lba_buff, bmap, space_needed, no_meta=True)
+    
     fwrite(lba_buff, block_size, space_needed, file)
     write(lba_buff, b"\x00" * block_size, block_size, no_meta=True) # Cleanup
+    print(get_mem(lba_buff.pointer_address, 200))
     
     blocks_left = total_blocks - (1 + 1 + space_needed)
     if blocks_left > 0:
@@ -280,9 +290,9 @@ def format_disk(
 
 def increase_memsize(size_: int):
     """Increase the default memory size for this file"""
-    global size
-    size = size_
-    reset_mem(size)
+    global memsize
+    memsize = size_
+    reset_mem(size_)
 
 
 class PBFS:
@@ -325,7 +335,10 @@ class PBFS:
         fseek(self.drive_file, self.layout.access("Header_Start").value, SEEK_SET)
         data = malloc(self.layout.access("Header_BlockSpan").value * self.block_size)
         fread(data, self.layout.access("Header_BlockSpan").value * self.block_size, 1, self.drive_file)
-        self.header.fill_b(read(data, self.layout.access("Header_BlockSpan").value * self.block_size))
+        try:
+            self.header.fill_b(read(data, self.layout.access("Header_BlockSpan").value * self.block_size))
+        except Exception as e:
+            print(f"Tried to read header but failed, Are you sure this is the right file system?: {read(data, self.layout.access("Header_BlockSpan").value * self.block_size)}\n\nException: {e}")
         
         if not self.validate_header():
             return False

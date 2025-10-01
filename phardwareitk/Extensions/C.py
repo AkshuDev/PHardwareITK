@@ -23,12 +23,19 @@ TRUE = 1
 EXIT_SUCCESS = 0
 EXIT_FALUIRE = 1
 
-METADATA_MAGIC: bytes = int(0xF7F0FAF3).to_bytes(4, "little")
+METADATA_MAGIC: bytes = b"\xF7\xFF\xF7\xFF"
 
 base = 0x1
-next_alloc = base
+
+heap_base = base
+heap_ptr = heap_base
+
+next_alloc = heap_base
 
 size = 64
+stack_base = size
+stack_ptr = stack_base
+
 memory = mem.Memory(64, 0, None, False, 0)  # Defaults to 64 bytes as size
 
 FREE_ADDR = {}
@@ -40,10 +47,21 @@ def reset_mem(size_: int, base_: int = 0x0, debug: bool = False) -> None:
     global memory
     global base
     global next_alloc
+    global stack_base
+    global stack_ptr
+    global heap_base
+    global heap_ptr
+    
     if base_ != 0x0:
         base = base_
         next_alloc = base
     size = size_
+    
+    stack_base = size_
+    stack_ptr = stack_base
+    heap_base = base_
+    heap_ptr = heap_base
+    
     memory = mem.Memory(size, 0, None, debug, 0)
     FREE_ADDR.clear()
 
@@ -60,7 +78,9 @@ def set_next_alloc(value: int) -> None:
 
 def append_next_alloc(value: int) -> None:
     global next_alloc
+    global heap_ptr
     next_alloc += value + 8  # 8 bytes for metadata
+    heap_ptr += value + 8
 
 
 def align(
@@ -77,7 +97,7 @@ def full_delete() -> None:
     reset_mem(size)
 
 
-def del_mem(addr: int, size_: int) -> None:
+def del_mem(addr: int, size_: int, stack: bool = True) -> None:
     """NULLS/frees the specified memory block for the specified size"""
     global memory
     global size
@@ -88,7 +108,8 @@ def del_mem(addr: int, size_: int) -> None:
         )
 
     memory.write_ram(b"\x00", addr, size_)
-    FREE_ADDR[addr] = size_
+    if not stack:
+        FREE_ADDR[addr] = size_
 
 
 def get_memory() -> mem.Memory:
@@ -106,8 +127,8 @@ def set_mem(addr: int, size_: int, data: bytes) -> None:
             f"Trying to access memory outside of the virtual memory space using address [{hex(addr)}], while virtual memory has a size of [{hex(size)}]. [ERROR:PHardwareITK:Extensions:C - set_mem]"
         )
 
-    memory.write_ram(METADATA_MAGIC + size_.to_bytes(4, "little"), addr - 8, 8)
-    memory.write_ram(data, addr, size_)
+    memory.write_ram(METADATA_MAGIC + size_.to_bytes(4, "little"), addr - 8, 0)
+    memory.write_ram(data, addr, 0)
 
     if addr in list(FREE_ADDR.keys()):
         FREE_ADDR.pop(addr)
@@ -122,7 +143,7 @@ def write_mem(addr: int, size_: int, data: bytes) -> None:
             f"Trying to access memory outside of the virtual memory space using address [{hex(addr)}], while virtual memory has a size of [{hex(size)}]. [ERROR:PHardwareITK:Extensions:C - write_mem]"
         )
     
-    memory.write_ram(data, addr, size_)
+    memory.write_ram(data, addr, 0)
 
 def get_mem(addr: int, size_: int) -> bytes:
     """Gets memory"""
@@ -136,6 +157,25 @@ def get_mem(addr: int, size_: int) -> bytes:
 
     return memory.get_ram(size_, addr)
 
+def push_stack(data: bytes, size: int) -> None:
+    """Pushes data onto stack"""
+    global stack_ptr
+    stack_ptr -= align(size, 2) + 8
+    data = data.ljust(align(size, 2), b"\x00")
+    set_mem(stack_ptr + 8, size, data)
+    
+def pop_stack(size:int) -> bytes:
+    """Pops data from the stack and returns it"""
+    global stack_ptr
+    
+    metadata = get_mem(stack_ptr, 8)
+    if not metadata[0:4] == METADATA_MAGIC:
+        raise OSError(f"Invalid Metadata in stack at [{hex(stack_ptr)}], {metadata}")
+
+    stack_ptr += 8
+    data = get_mem(stack_ptr, size)
+    stack_ptr += size
+    return data
 
 def get_mem_size() -> int:
     global size
@@ -205,10 +245,8 @@ class Uint8_t:
         self.value = value
         self.data = value.to_bytes(1, "little")
         self.size = 1
-        self.address = align(next_alloc, self.size)
-        append_next_alloc(self.size)
-
-        set_mem(self.address, self.size, self.data)
+        push_stack(self.data, self.size)
+        self.address = stack_ptr + 8
 
         self.deleted = False
 
@@ -222,7 +260,7 @@ class Uint8_t:
         if self.deleted:
             return
 
-        del_mem(self.address, self.size)
+        del_mem(self.address - 8, self.size + 8)
 
         self.deleted = True
 
@@ -251,11 +289,8 @@ class Uint16_t:
         self.value = value
         self.data = value.to_bytes(2, "little")
         self.size = 2
-        self.address = align(next_alloc, self.size)
-        append_next_alloc(self.size)
-
-        set_mem(self.address, self.size, self.data)
-
+        push_stack(self.data, self.size)
+        self.address = stack_ptr + 8
         self.deleted = False
 
     def __repr__(self) -> str:
@@ -268,7 +303,7 @@ class Uint16_t:
         if self.deleted:
             return
 
-        del_mem(self.address, self.size)
+        del_mem(self.address - 8, self.size + 8)
 
         self.deleted = True
 
@@ -297,10 +332,8 @@ class Uint32_t:
         self.value = value
         self.data = value.to_bytes(4, "little")
         self.size = 4
-        self.address = align(next_alloc, self.size)
-        append_next_alloc(self.size)
-
-        set_mem(self.address, self.size, self.data)
+        push_stack(self.data, self.size)
+        self.address = stack_ptr + 8
 
         self.deleted = False
 
@@ -314,7 +347,7 @@ class Uint32_t:
         if self.deleted:
             return
 
-        del_mem(self.address, self.size)
+        del_mem(self.address - 8, self.size + 8)
 
         self.deleted = True
 
@@ -343,10 +376,8 @@ class Uint64_t:
         self.value = value
         self.data = value.to_bytes(8, "little")
         self.size = 8
-        self.address = align(next_alloc, self.size)
-        append_next_alloc(self.size)
-
-        set_mem(self.address, self.size, self.data)
+        push_stack(self.data, self.size)
+        self.address = stack_ptr + 8
 
         self.deleted = False
 
@@ -360,7 +391,7 @@ class Uint64_t:
         if self.deleted:
             return
 
-        del_mem(self.address, self.size)
+        del_mem(self.address - 8, self.size + 8)
 
         self.deleted = True
 
@@ -386,10 +417,8 @@ class Int8:
         self.value = value
         self.data = value.to_bytes(1, "little", signed=True)
         self.size = 1
-        self.address = align(next_alloc, self.size)
-        append_next_alloc(self.size)
-
-        set_mem(self.address, self.size, self.data)
+        push_stack(self.data, self.size)
+        self.address = stack_ptr + 8
 
         self.deleted = False
 
@@ -400,7 +429,7 @@ class Int8:
         if self.deleted:
             return
 
-        del_mem(self.address, self.size)
+        del_mem(self.address - 8, self.size + 8)
 
         self.deleted = True
 
@@ -426,10 +455,8 @@ class Int16:
         self.value = value
         self.data = value.to_bytes(2, "little", signed=True)
         self.size = 2
-        self.address = align(next_alloc, self.size)
-        append_next_alloc(self.size)
-
-        set_mem(self.address, self.size, self.data)
+        push_stack(self.data, self.size)
+        self.address = stack_ptr + 8
 
         self.deleted = False
 
@@ -440,7 +467,7 @@ class Int16:
         if self.deleted:
             return
 
-        del_mem(self.address, self.size)
+        del_mem(self.address - 8, self.size + 8)
 
         self.deleted = True
 
@@ -466,10 +493,8 @@ class Int32:
         self.value = value
         self.data = value.to_bytes(4, "little", signed=True)
         self.size = 4
-        self.address = align(next_alloc, self.size)
-        append_next_alloc(self.size)
-
-        set_mem(self.address, self.size, self.data)
+        push_stack(self.data, self.size)
+        self.address = stack_ptr + 8
 
         self.deleted = False
 
@@ -480,7 +505,7 @@ class Int32:
         if self.deleted:
             return
 
-        del_mem(self.address, self.size)
+        del_mem(self.address - 8, self.size + 8)
 
         self.deleted = True
 
@@ -506,10 +531,8 @@ class Int64:
         self.value = value
         self.data = value.to_bytes(8, "little", signed=True)
         self.size = 8
-        self.address = align(next_alloc, self.size)
-        append_next_alloc(self.size)
-
-        set_mem(self.address, self.size, self.data)
+        push_stack(self.data, self.size)
+        self.address = stack_ptr + 8
 
         self.deleted = False
 
@@ -520,7 +543,7 @@ class Int64:
         if self.deleted:
             return
 
-        del_mem(self.address, self.size)
+        del_mem(self.address - 8, self.size + 8)
 
         self.deleted = True
 
@@ -659,15 +682,17 @@ class Pointer(Uint64_t):
 # String access
 
 
-def get_string(ptr: Pointer[Char]) -> str:
+def get_string(ptr: Union[Pointer[Char], str]) -> str:
     """Returns a string from an	memory address"""
+    if isinstance(ptr, str): 
+        return ptr
+    
     string = b""
     addr = ptr.pointer_address
+    
     size = get_size_metadata(addr - 8)
 
-    string = get_mem(addr, size).removesuffix(
-        b"\x00\x00"
-    )  # Remove the null terminators
+    string = get_mem(addr, size).removesuffix(b"\x00\x00")
 
     return string.decode("utf-8")
 
@@ -720,11 +745,11 @@ class Array:
 # Funcs (Basic)
 def sizeof(value: object) -> Size_t:
     if isinstance(value, int):
-        return Size_t(Int(value).size)
+        return Size_t(4) # size of 32-bit int
     elif isinstance(value, str):
-        return Size_t(make_string(value).size)
+        return Size_t(len(value))
     elif isinstance(value, bytes):
-        return Size_t(Uint64_t(value).size)
+        return Size_t(len(value))
     else:
         val = None
         try:
@@ -752,7 +777,7 @@ def malloc(size: Union[int, Size_t]) -> Pointer[Void]:
 
     # ELSE
     addr = next_alloc
-    append_next_alloc(size + 8)
+    append_next_alloc(size)
 
     write_mem(
         addr, 8, METADATA_MAGIC + size.to_bytes(4, "little")
@@ -916,7 +941,7 @@ def write(ptr: Pointer[Void], data: bytes, size: Union[int, Size_t], no_meta: bo
     if not isinstance(size, int):
         raise TypeError("Argument size must be a Size_t or a int")
         
-    if no_meta:
+    if no_meta == True:
         write_mem(ptr.pointer_address, size, data)
         return 0
 
@@ -949,11 +974,8 @@ def make_string(value: str) -> Pointer[Char]:
         value += "\x00\x00"
     
     # Make a list of Char
-    out = malloc(len(value))
-
-    out.cast(Char)
-
-    write(out, value.encode("utf-8"), len(value))  # Write the string to memory
+    push_stack(value.encode("utf-8"), len(value))
+    out = Pointer(Char, stack_ptr + 8)
 
     return out  # char* is basically the pointer to the first char in a string
 
@@ -1015,17 +1037,7 @@ class Struct:
 
     def set(self, name: str, value: object) -> int:
         """Sets the new value of a part of the struct. NOTE: The new value must be of the old defined type"""
-        t = None
-
-        try:
-            t = self.structure[name]["type"]
-        except Exception:
-            print("Struct Set Failed: Reading Type Failed")
-            return -1
-
-        if not isinstance(value, t):
-            return -2
-
+        # C Doesn't check stuff like this (i mean the program not compiler)
         try:
             self.structure[name]["value"] = value
         except Exception:
@@ -1139,6 +1151,24 @@ class Struct:
                             write(Pointer(Void, addr + offset + i), data[i:i + MAX_WRITE], min(MAX_WRITE, size-i), no_meta=True)
                     else:
                         write(Pointer(Void, addr + offset), data, size, no_meta=True)
+                    offset += size
+                    total_written += size
+                elif isinstance(value, str):
+                    if total_written + size > max_memory_usage:
+                        print("[CRITICAL ERROR] Memory Usage Exceeded, Stopping immedietly: C.Struct.write_b")
+                        sys.exit(errno.ENO_MEM)
+                    
+                    write(Pointer(Void, addr + offset), value.encode("utf-8"), size, no_meta=True)
+                    
+                    offset += size
+                    total_written += size
+                elif isinstance(value, bytes):
+                    if total_written + size > max_memory_usage:
+                        print("[CRITICAL ERROR] Memory Usage Exceeded, Stopping immedietly: C.Struct.write_b")
+                        sys.exit(errno.ENO_MEM)
+                    
+                    write(Pointer(Void, addr + offset), value, size, no_meta=True)
+                    
                     offset += size
                     total_written += size
                 elif not isinstance(value, Array):
