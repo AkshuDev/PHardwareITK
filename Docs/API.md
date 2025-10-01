@@ -799,6 +799,16 @@ def set_mem(addr: int, size_: int, data: bytes) -> None
 
 Sets memory to specfied data
 
+<a id="phardwareitk.Extensions.C.write_mem"></a>
+
+#### write\_mem
+
+```python
+def write_mem(addr: int, size_: int, data: bytes) -> None
+```
+
+Writes data to specified address, unlike set_mem, this doesnt create metadata
+
 <a id="phardwareitk.Extensions.C.get_mem"></a>
 
 #### get\_mem
@@ -980,7 +990,7 @@ class Pointer(Uint64_t)
 #### cast
 
 ```python
-def cast(type: object) -> None
+def cast(type_: object, object_: object = None) -> None
 ```
 
 Casts a pointer to another type
@@ -1020,10 +1030,10 @@ Allocate memory
 #### free
 
 ```python
-def free(ptr: Pointer) -> int
+def free(ptr: Pointer, chunk_size: int = 1024 * 16) -> int
 ```
 
-Free memory (doesn't delete pointer)
+Free memory (doesn't delete pointer). This frees memory in chunks to be memory safe and default chunk size if 16KB
 
 <a id="phardwareitk.Extensions.C.calloc"></a>
 
@@ -1106,7 +1116,10 @@ Compares two data in memory
 #### write
 
 ```python
-def write(ptr: Pointer[Void], data: bytes, size: Union[int, Size_t]) -> int
+def write(ptr: Pointer[Void],
+          data: bytes,
+          size: Union[int, Size_t],
+          no_meta: bool = False) -> int
 ```
 
 Writes data to memory
@@ -1151,10 +1164,13 @@ def __init__(structure: dict) -> None
 
 Format:
 {
-	'<Name>': {
-		'type': <type in form of one of the class here>,
-		'value': <value>
-	}
+        '<Name>': {
+                'type': <type in form of one of the class here>,
+                'value': <value>,
+                'ptr_type': <type of pointer. NOTE: Only if your 'type' is a Pointer and this is Optional, it will default to Void>,
+                'array_type': <type of array. NOTE: Only if your 'type' is a Array>,
+                'array_size': <size of array. NOTE: Only if your 'type' is a Array>
+        }
 }
 
 <a id="phardwareitk.Extensions.C.Struct.access"></a>
@@ -1187,12 +1203,22 @@ def set(name: str, value: object) -> int
 
 Sets the new value of a part of the struct. NOTE: The new value must be of the old defined type
 
+<a id="phardwareitk.Extensions.C.Struct.get_size"></a>
+
+#### get\_size
+
+```python
+def get_size() -> int
+```
+
+Gets the size of the struct
+
 <a id="phardwareitk.Extensions.C.Struct.fill_b"></a>
 
 #### fill\_b
 
 ```python
-def fill_b(data: bytes, byteorder: str = 'big') -> int
+def fill_b(data: bytes, byteorder: str = "big") -> int
 ```
 
 Fills the entire struct by the provided value (bytes)
@@ -1202,10 +1228,31 @@ Fills the entire struct by the provided value (bytes)
 #### fill\_f
 
 ```python
-def fill_f(file: TextIO, byteorder: str = 'big') -> int
+def fill_f(file: TextIO, byteorder: str = "big") -> int
 ```
 
 Fills the struct from a file
+
+<a id="phardwareitk.Extensions.C.Struct.write_b"></a>
+
+#### write\_b
+
+```python
+def write_b(buffer_: Pointer[Void],
+            max_memory_usage: int = 1024 * 1024 * 64) -> int
+```
+
+Writes the filled structure to any point in memory.
+
+**Arguments**:
+
+- `buffer_` _Pointer[Void]_ - The address in memory to write to
+- `max_memory_usage` _int_ - The maximum memory usage by this function to prevent crashes to Python/Terminal/Environment. Default is 64 MB / 1024*1024*64 bytes.
+  
+
+**Returns**:
+
+- `int` - Return Code. 0 Means success.
 
 <a id="phardwareitk.Extensions.C.Struct.dereference"></a>
 
@@ -1240,6 +1287,26 @@ Dereferences a pointer to a struct and returns the struct object.
 <a id="phardwareitk.Extensions.C_IO"></a>
 
 # phardwareitk.Extensions.C\_IO
+
+<a id="phardwareitk.Extensions.C_IO.set_exception_print"></a>
+
+#### set\_exception\_print
+
+```python
+def set_exception_print(val: bool) -> None
+```
+
+True for printing exception, False for otherwise
+
+<a id="phardwareitk.Extensions.C_IO.print_exception"></a>
+
+#### print\_exception
+
+```python
+def print_exception(exception) -> None
+```
+
+Prints exception provided based on the do_print_exception, whose value is setted by set_exception_print function
 
 <a id="phardwareitk.Extensions.C_IO.fopen"></a>
 
@@ -1361,8 +1428,11 @@ fread - Read data from a file
 #### fwrite
 
 ```python
-def fwrite(src: Pointer[Void], size: Union[int, Size_t],
-           nmemb: Union[int, Size_t], file_ptr: Pointer[FILE]) -> int
+def fwrite(src: Pointer[Void],
+           size: Union[int, Size_t],
+           nmemb: Union[int, Size_t],
+           file_ptr: Pointer[FILE],
+           chunk_size: int = 4096) -> int
 ```
 
 fwrite - Write data to a file
@@ -1373,6 +1443,7 @@ fwrite - Write data to a file
 - `size` _int_ - size of each element to write
 - `nmemb` _int_ - number of elements to write
 - `file_ptr` _Pointer[FILE]_ - Pointer to the FILE struct
+- `chunk_size` _int_ - Writing files in chunk to prevent overuse of memory. Defaults to 4096 bytes / 4KB
   
 
 **Returns**:
@@ -7884,25 +7955,25 @@ class Compiler()
 
 Main Module Handler Compiler for phardwareitk
 
-<a id="phardwareitk.PENV..hard_disk.AOS_FHD"></a>
+<a id="phardwareitk.PENV.AOS_PENV.AOS_FHD"></a>
 
-# phardwareitk.PENV..hard\_disk.AOS\_FHD
+# phardwareitk.PENV.AOS\_PENV.AOS\_FHD
 
-<a id="phardwareitk.PENV..hard_disk.AOS_Kernel"></a>
+<a id="phardwareitk.PENV.AOS_PENV.AOS_Kernel"></a>
 
-# phardwareitk.PENV..hard\_disk.AOS\_Kernel
+# phardwareitk.PENV.AOS\_PENV.AOS\_Kernel
 
-<a id="phardwareitk.PENV..hard_disk.AOS_Kernel._cd_"></a>
+<a id="phardwareitk.PENV.AOS_PENV.AOS_Kernel._cd_"></a>
 
 #### \_cd\_
 
 Current directory
 
-<a id="phardwareitk.PENV..hard_disk.aoshelp"></a>
+<a id="phardwareitk.PENV.AOS_PENV.aoshelp"></a>
 
-# phardwareitk.PENV..hard\_disk.aoshelp
+# phardwareitk.PENV.AOS\_PENV.aoshelp
 
-<a id="phardwareitk.PENV..hard_disk.aoshelp.cmd_aos_help"></a>
+<a id="phardwareitk.PENV.AOS_PENV.aoshelp.cmd_aos_help"></a>
 
 #### cmd\_aos\_help
 
@@ -7914,17 +7985,17 @@ def cmd_aos_help(print_: bool,
 
 AOS cmd help func
 
-<a id="phardwareitk.PENV..hard_disk.boot"></a>
+<a id="phardwareitk.PENV.AOS_PENV.boot"></a>
 
-# phardwareitk.PENV..hard\_disk.boot
+# phardwareitk.PENV.AOS\_PENV.boot
 
-<a id="phardwareitk.PENV..hard_disk.boot.__sys_info__"></a>
+<a id="phardwareitk.PENV.AOS_PENV.boot.__sys_info__"></a>
 
 #### \_\_sys\_info\_\_
 
 type:ignore
 
-<a id="phardwareitk.PENV..hard_disk.boot.__drive_info__"></a>
+<a id="phardwareitk.PENV.AOS_PENV.boot.__drive_info__"></a>
 
 #### \_\_drive\_info\_\_
 
@@ -7960,11 +8031,11 @@ typedef struct {
 #### PBFS\_FILE\_TABLE\_ENTRY
 
 typedef struct {
-	char Name[128]; // Name of the file
+	char* Name; // Name of the file
 	uint64_t File_Data_Offset; // File data offset
 	uint64_t Permission_Table_Offset; // Permission table offset
 	uint64_t Block_Span; // File Block Span
-} __attribute__((packed)) PBFS_FileTableEntry; // Total = 152 bytes
+} __attribute__((packed)) PBFS_FileTableEntry; // Total = 24 bytes
 
 <a id="phardwareitk.PENV.PBFS.PBFS_PERMISSION_TABLE_ENTRY"></a>
 
@@ -8056,6 +8127,223 @@ typedef struct {
 	uint64_t lba;
 } PBFS_FileListEntry;
 
+<a id="phardwareitk.PENV.PBFS.validate_disk"></a>
+
+#### validate\_disk
+
+```python
+def validate_disk(path: str, block_size: int = 512) -> bool
+```
+
+Validates the Drive
+
+<a id="phardwareitk.PENV.PBFS.format_disk"></a>
+
+#### format\_disk
+
+```python
+def format_disk(path: str,
+                total_blocks: int = 2048,
+                block_size: int = 512,
+                disk_name: bytes = b"SSD-PBFS-VIRTUAL") -> int
+```
+
+Formates the Drive
+
+<a id="phardwareitk.PENV.PBFS.increase_memsize"></a>
+
+#### increase\_memsize
+
+```python
+def increase_memsize(size_: int)
+```
+
+Increase the default memory size for this file
+
+<a id="phardwareitk.PENV.PBFS.PBFS"></a>
+
+## PBFS Objects
+
+```python
+class PBFS()
+```
+
+Python Block File System / Pheonix Block File System
+
+<a id="phardwareitk.PENV.PBFS.PBFS.validate_header"></a>
+
+#### validate\_header
+
+```python
+def validate_header() -> bool
+```
+
+Validates the header
+
+<a id="phardwareitk.PENV.PBFS.PBFS.read_header"></a>
+
+#### read\_header
+
+```python
+def read_header() -> bool
+```
+
+Reads the header
+
+<a id="phardwareitk.PENV.PBFS.PBFS.is_block_free"></a>
+
+#### is\_block\_free
+
+```python
+def is_block_free(block_index: int) -> bool
+```
+
+Checks if the specified block is free
+
+<a id="phardwareitk.PENV.PBFS.PBFS.mark_blocks_used"></a>
+
+#### mark\_blocks\_used
+
+```python
+def mark_blocks_used(start_block: int, count: int)
+```
+
+Marks a block used
+
+<a id="phardwareitk.PENV.PBFS.PBFS.mark_blocks_free"></a>
+
+#### mark\_blocks\_free
+
+```python
+def mark_blocks_free(start_block: int, count: int)
+```
+
+Marks a block free
+
+<a id="phardwareitk.PENV.PBFS.PBFS.get_free_blocks"></a>
+
+#### get\_free\_blocks
+
+```python
+def get_free_blocks(span: int) -> int
+```
+
+Return starting block index of 'span' free blocks or -1 if none
+
+<a id="phardwareitk.PENV.PBFS.PBFS.write_file"></a>
+
+#### write\_file
+
+```python
+def write_file(content: bytes,
+               path: str,
+               reserved_size: int = 0,
+               permissions: tuple = (1, 1, 0, 1, 0, 0, 1, 0),
+               files_with_access: list = ["~"]) -> bool
+```
+
+Write a file to Drive
+
+**Arguments**:
+
+- `content` _bytes_ - The content of the file
+- `path` _str_ - Path of the file
+- `reserved_size` _int_ - Extra space if needed to reserve. Defaults to 0
+  
+
+**Returns**:
+
+- `bool` - True if successful else False
+
+<a id="phardwareitk.PENV.PBFS.PBFS.list_files"></a>
+
+#### list\_files
+
+```python
+def list_files() -> dict
+```
+
+Returns a hierarchical dict of files/folders and updates self.files/self.folders.
+
+**Example**:
+
+  {
+- `"folder1"` - {
+- `"file1.txt"` - {...},
+- `"subfolder"` - {
+- `"file2.txt"` - {...}
+  }
+  },
+- `"file3.txt"` - {...}
+  }
+
+<a id="phardwareitk.PENV.PBFS.PBFS.load_bitmap"></a>
+
+#### load\_bitmap
+
+```python
+def load_bitmap() -> None
+```
+
+Reads the bitmap from disk into memory
+
+<a id="phardwareitk.PENV.PBFS.PBFS.make_meta_entry"></a>
+
+#### make\_meta\_entry
+
+```python
+def make_meta_entry(path: str,
+                    addr: int,
+                    block_span: int,
+                    permission_table_offset: int,
+                    dir_: bool = False) -> Struct
+```
+
+Creates and returns a File Table Entry
+
+<a id="phardwareitk.PENV.PBFS.PBFS.make_permission_table"></a>
+
+#### make\_permission\_table
+
+```python
+def make_permission_table(read: int, write: int, executable: int,
+                          listable: int, hidden: int, full_control: int,
+                          delete: int, special_access: int,
+                          file_tree_offset: int) -> Struct
+```
+
+Creates and returns the permission table
+
+<a id="phardwareitk.PENV.PBFS.PBFS.make_file_tree"></a>
+
+#### make\_file\_tree
+
+```python
+def make_file_tree(files: list = ["~"]) -> bytes
+```
+
+Creates and returns the file tree
+
+<a id="phardwareitk.PENV.PBFS.PBFS.read_file"></a>
+
+#### read\_file
+
+```python
+def read_file(path: str) -> bytes
+```
+
+Read a file from the drive by its path
+
+<a id="phardwareitk.PENV.PBFS.PBFS.close_drive"></a>
+
+#### close\_drive
+
+```python
+def close_drive() -> None
+```
+
+Closes the drive and frees up all the memory
+
 <a id="phardwareitk.PENV"></a>
 
 # phardwareitk.PENV
@@ -8087,6 +8375,26 @@ Forces a OS so that the script will follow that specific os
 
 - `_os` _str_ - The OS you want to force.
 
+<a id="phardwareitk.PENV.copy_folder_to_pbfs"></a>
+
+#### copy\_folder\_to\_pbfs
+
+```python
+def copy_folder_to_pbfs(pbfs,
+                        folder_path: str,
+                        reserved_size: int = 0,
+                        permissions: tuple = (1, 1, 1, 1, 0, 0, 1, 0))
+```
+
+Recursively copies a folder into PBFS.
+
+**Arguments**:
+
+- `pbfs` _PBFS_ - The mounted PBFS instance.
+- `folder_path` _str_ - Path to the folder to copy.
+- `reserved_size` _int_ - Extra space to reserve per file.
+- `permissions` _tuple_ - Permissions to apply to all files.
+
 <a id="phardwareitk.PENV.start_penv"></a>
 
 #### start\_penv
@@ -8101,7 +8409,9 @@ def start_penv(max_ram_bytes: int = 2 * 1000000,
                total_blocks: int = 2048,
                block_size: int = 512,
                disk_name: str = "PheonixSSD",
-               include_uefi: bool = False) -> None
+               include_uefi: bool = True,
+               format_drive: bool = False,
+               os: str = "") -> None
 ```
 
 Starts Pheonix Virtual Environment

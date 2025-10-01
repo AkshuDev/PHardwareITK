@@ -342,25 +342,28 @@ class PBFS:
 
     def is_block_free(self, block_index: int) -> bool:
         """Checks if the specified block is free"""
-        if self.bitmap[block_index] == b"\x00":
-            return True
-        elif self.bitmap[block_index] == b"\x01":
-            return False
-        else:
-            print(f"BITMAP IS MALFORMED!, GOT {self.bitmap[block_index]}")
-            raise Exception(f"BITMAP IS MALFORMED!, GOT {self.bitmap[block_index]}")
+        byte_index = block_index // 8
+        bit_index = byte_index % 8
+        byte = self.bitmap[byte_index]
+        return not (byte & (1 << bit_index))
     
     def mark_blocks_used(self, start_block: int, count: int):
         """Marks a block used"""
-        self.bitmap[start_block] = b"\x01"
-        for i in range(count):
-            self.bitmap[start_block + i] = b"\x01"
+        block = start_block
+        for i in range(count + 1):
+            block += i
+            byte_index = block // 8
+            bit_index = block % 8
+            self.bitmap[byte_index] |= (1 << bit_index)
     
     def mark_blocks_free(self, start_block: int, count: int):
         """Marks a block free"""
-        self.bitmap[start_block] = b"\x00"
-        for i in range(count):
-            self.bitmap[start_block + 1] = b"\x00"
+        block = start_block
+        for i in range(count + 1):
+            block += i
+            byte_index = block // 8
+            bit_index = block % 8
+            self.bitmap[byte_index] &= ~(1 << bit_index)
 
     def get_free_blocks(self, span: int) -> int:
         """Return starting block index of 'span' free blocks or -1 if none"""
