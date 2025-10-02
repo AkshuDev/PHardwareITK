@@ -682,10 +682,12 @@ class Pointer(Uint64_t):
 # String access
 
 
-def get_string(ptr: Union[Pointer[Char], str]) -> str:
+def get_string(ptr: Union[Pointer[Char], str, bytes]) -> str:
     """Returns a string from an	memory address"""
     if isinstance(ptr, str): 
         return ptr
+    elif isinstance(ptr, bytes):
+        return ptr.decode("utf-8")
     
     string = b""
     addr = ptr.pointer_address

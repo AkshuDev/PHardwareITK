@@ -321,7 +321,7 @@ def fread(dest: Pointer[Void], size: Union[int, Size_t], nmemb: Union[int, Size_
         print_exception(e)
         return -1
 
-def fwrite(src: Pointer[Void], size: Union[int, Size_t], nmemb: Union[int, Size_t], file_ptr: Pointer[FILE], chunk_size:int=4096) -> int:
+def fwrite(src: Union[Pointer[Void], str, bytes], size: Union[int, Size_t], nmemb: Union[int, Size_t], file_ptr: Pointer[FILE], chunk_size:int=4096) -> int:
     """fwrite - Write data to a file
     
     Args:
@@ -354,13 +354,18 @@ def fwrite(src: Pointer[Void], size: Union[int, Size_t], nmemb: Union[int, Size_
             return -1
         
         written = 0
-        srcaddr = src.pointer_address
+        srcaddr = None
+        if isinstance(src, Pointer):
+            srcaddr = src.pointer_address
         
         while written < total_bytes:
             # Read data from the source pointer
             to_write = min(chunk_size, total_bytes - written)
             
-            data = get_mem(srcaddr + written, to_write)
+            if isinstance(src, Pointer):
+                data = get_mem(srcaddr + written, to_write)
+            else:
+                data = src
     
             if not 'b' in fd.mode:
                 try:

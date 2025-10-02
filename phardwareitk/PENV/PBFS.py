@@ -223,63 +223,64 @@ def format_disk(
     reset_mem(memsize) # Always ensure clean slate
     print("Formatting disk...")
     file: Pointer[FILE] = fopen(path, "wb+")
+    try:
+        # Now we format it
+        PBFS_Header = Struct(PBFS_HEADER)
+        PBFS_Header.set("Magic", b"PBFS\x00\x00")
+        PBFS_Header.set("Block_Size", Uint32_t(block_size))
+        PBFS_Header.set("Total_Blocks", Uint32_t(total_blocks))
+        PBFS_Header.set("Disk_Name", disk_name)
+        PBFS_Header.set("TimeStamp", Uint64_t(int(time.time())))
+        PBFS_Header.set("Version", Uint32_t(1))
+        PBFS_Header.set("Entries", Uint32_t(0))
+        PBFS_Header.set("First_Boot_Timestamp", Uint64_t(0))
+        PBFS_Header.set("OS_BootMode", Uint16_t(1))
 
-    # Now we format it
-    PBFS_Header = Struct(PBFS_HEADER)
-    PBFS_Header.set("Magic", b"PBFS\x00\x00")
-    PBFS_Header.set("Block_Size", Uint32_t(block_size))
-    PBFS_Header.set("Total_Blocks", Uint32_t(total_blocks))
-    PBFS_Header.set("Disk_Name", disk_name)
-    PBFS_Header.set("TimeStamp", Uint64_t(int(time.time())))
-    PBFS_Header.set("Version", Uint32_t(1))
-    PBFS_Header.set("Entries", Uint32_t(0))
-    PBFS_Header.set("First_Boot_Timestamp", Uint64_t(0))
-    PBFS_Header.set("OS_BootMode", Uint16_t(1))
+        print("Formatting...")
+        lba_buff = malloc(block_size)
+        write(lba_buff, b"\x00" * block_size, block_size, no_meta=True)
+        fwrite(lba_buff, block_size, 1, file)
 
-    print("Formatting...")
-    lba_buff = malloc(block_size)
-    write(lba_buff, b"\x00" * block_size, block_size, no_meta=True)
-    fwrite(lba_buff, block_size, 1, file)
+        err = PBFS_Header.write_b(lba_buff)
+        if err < 0:
+            print("Error Occured, Quitting!")
+            return -1
 
-    err = PBFS_Header.write_b(lba_buff)
-    if err < 0:
-        print("Error Occured, Quitting!")
-        return -1
-
-    del PBFS_Header
-    print("Writing PBFS Header...")
-    fwrite(lba_buff, block_size, 1, file)
-    write(lba_buff, b"\x00" * block_size, block_size, no_meta=True)
-    
-    # Create bitmap
-    print("Creating Bitmap")
-    
-    def make_bitmap(total_blocks_, reserved_blocks=3):
-        bytes_needed = (total_blocks_ + 7) // 8
-        bitmap = bytearray(bytes_needed)
+        del PBFS_Header
+        print("Writing PBFS Header...")
+        fwrite(lba_buff, block_size, 1, file)
+        write(lba_buff, b"\x00" * block_size, block_size, no_meta=True)
         
-        for block in range(reserved_blocks):
-            byte_index = block // 8
-            bit_index = block % 8
-            bitmap[byte_index] |= (1 << bit_index)
+        # Create bitmap
+        print("Creating Bitmap")
+        
+        def make_bitmap(total_blocks_, reserved_blocks=3):
+            bytes_needed = (total_blocks_ + 7) // 8
+            bitmap = bytearray(bytes_needed)
             
-        return bitmap
-    
-    bmap = make_bitmap(total_blocks, 3)
-    space_needed = (total_blocks + 7) // 8
-    
-    write(lba_buff, bmap, space_needed, no_meta=True)
-    
-    fwrite(lba_buff, block_size, space_needed, file)
-    write(lba_buff, b"\x00" * block_size, block_size, no_meta=True) # Cleanup
-    print(get_mem(lba_buff.pointer_address, 200))
-    
-    blocks_left = total_blocks - (1 + 1 + space_needed)
-    if blocks_left > 0:
-        fwrite(lba_buff, block_size, blocks_left, file)
-    
-    print("Done formatting disk...")
-    fflush(file)
+            for block in range(reserved_blocks):
+                byte_index = block // 8
+                bit_index = block % 8
+                bitmap[byte_index] |= (1 << bit_index)
+                
+            return bitmap
+        
+        bmap = make_bitmap(total_blocks, 3)
+        space_needed = (total_blocks + 7) // 8
+        
+        write(lba_buff, bmap, space_needed, no_meta=True)
+        fwrite(lba_buff, block_size, space_needed, file)
+        
+        fwrite(b"\x00" * block_size, block_size, total_blocks - (1 + space_needed), file)
+        
+        print("Done formatting disk...")
+        fflush(file)
+    except Exception as e:
+        print(f"Exception: {e}")
+        fclose(file)
+        free(lba_buff)
+        print("FAILED!")
+        return -1
     fclose(file)
     free(lba_buff)
 
