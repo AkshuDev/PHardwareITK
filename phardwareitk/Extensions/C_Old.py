@@ -1,4 +1,4 @@
-"""This file includes all classes to write Basic 'C' Code inside Python without the need of Cython."""
+"""This file includes all classes to write Basic 'C' Code inside Python without the need of Cython. (OLD VERSION)"""
 
 from typing import *
 import sys

@@ -27,43 +27,43 @@ SEEK_END = 2
 
 _IO_FILE = {
     "_IO_read_ptr": {
-        "type": Pointer,
-        "ptr_to": Char,
+        "type": pointer,
+        "ptr_type": char,
         "value": None
     },
     "_IO_read_end": {
-        "type": Pointer,
-        "ptr_to": Char,
+        "type": pointer,
+        "ptr_type": char,
         "value": None
     },
     "_IO_read_base": {
-        "type": Pointer,
-        "ptr_to": Char,
+        "type": pointer,
+        "ptr_type": char,
         "value": None
     },
     "_IO_write_base": {
-        "type": Pointer,
-        "ptr_to": Char,
+        "type": pointer,
+        "ptr_type": char,
         "value": None
     },
     "_IO_write_ptr": {
-        "type": Pointer,
-        "ptr_to": Char,
+        "type": pointer,
+        "ptr_type": char,
         "value": None
     },
     "_IO_write_end": {
-        "type": Pointer,
-        "ptr_to": Char,
+        "type": pointer,
+        "ptr_type": char,
         "value": None
     },
     "_IO_buf_base": {
-        "type": Pointer,
-        "ptr_to": Char,
+        "type": pointer,
+        "ptr_type": char,
         "value": None
     },
     "_IO_buf_end": {
-        "type": Pointer,
-        "ptr_to": Char,
+        "type": pointer,
+        "ptr_type": char,
         "value": None
     },
     "_fileno": {
