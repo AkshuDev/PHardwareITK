@@ -1,39 +1,49 @@
 """This is the new and improved C Extension, which allows for easy usage. It allows emulating C in python to do tasks that Cython/C Can do in python by emulating it."""
 
-from typing import Union, Optional
-from phardwareitk.Memory import Memory
+from typing import Union, Optional, Any
+from phardwareitk.Memory.Memory import Memory as __memory__
 
-memory: Memory = None
-memsize: int = 64
+_memory: Optional[__memory__] = None
+_memsize: int = 64
 
-heap_ptr: int = 0x0
-heap_nextalloc: int = 0x0
-heap_registry: dict[int, int] = {}
+_heap_ptr: int = 0x0
+_heap_nextalloc: int = 0x0
+_heap_registry: dict[int, int] = {}
+_heap_ratio: float = 0.50
+_heap_size: int = int(_memsize * _heap_ratio) 
 
-stack_ptr = memsize
+_stack_ptr: int = _memsize
+_stack_frames: list[int] = []
 
 def align(v1: int, v2: int) -> int:
     return ((v1 + v2 - 1) // v2) * v2
 
 def reset_mem(new_size: int) -> None:
     """Resets the memory with new size, expanding or shrinking it"""
-    global memory
-    global memsize
-    global stack_ptr
-    memsize = new_size
-    memory = Memory(new_size, system_size=0, proc_sector_size=0, Block=None)
-    stack_ptr = new_size
+    global _memory
+    global _memsize
+    global _stack_ptr
+    global _heap_size
+    _memsize = new_size
+    _memory = __memory__(new_size, system_size=0, proc_sector_size=0, Block=None)
+    _stack_ptr = new_size
+    _heap_size = int(_memsize * _heap_ratio)
 
 def initialize(size: int=64) -> None:
     """Initializes the memory, very important to use this before using anything else!"""
     reset_mem(size)
 
+def get_memory() -> __memory__:
+    """Returns the global memory"""
+    global _memory
+    return _memory
+
 def write_mem(data:bytes, size:int, addr:int) -> None:
     """Writes data of specified size at the specified address"""
-    global memory
-    global memsize
+    global _memory
+    global _memsize
 
-    if addr > memsize:
+    if addr > _memsize:
         raise OSError(
             f"Trying to access memory outside of the virtual memory space using address [{hex(addr)}], while virtual memory has a size of [{hex(memsize)}]. [ERROR:PHardwareITK:Extensions:C - set_mem]"
         )
@@ -41,19 +51,19 @@ def write_mem(data:bytes, size:int, addr:int) -> None:
     data_ = data[:size]
     if size == len(data): data_ = data
 
-    memory.write_ram(data_, addr, 0)
+    _memory.write_ram(data_, addr, 0)
 
 def read_mem(size:int, addr: int) -> bytes:
     """Reads the specified size from the specified address from memory."""
-    global memory
-    global memsize
+    global _memory
+    global _memsize
 
-    if addr > memsize:
+    if addr > _memsize:
         raise OSError(
             f"Trying to access memory outside of the virtual memory space using address [{hex(addr)}], while virtual memory has a size of [{hex(memsize)}]. [ERROR:PHardwareITK:Extensions:C - set_mem]"
         )
 
-    return memory.get_ram(size, addr)
+    return _memory.get_ram(size, addr)
 
 def delete_mem(size: int, addr: int) -> None:
     """Deletes/Clears memory at specified address for specified size"""
@@ -61,7 +71,7 @@ def delete_mem(size: int, addr: int) -> None:
 
 def stack_push(data: bytes) -> None:
     """Pushes data onto the stack"""
-    global stack_ptr
+    global _stack_ptr
 
     size = align(len(data), 8)
     if size > len(data):
@@ -69,76 +79,88 @@ def stack_push(data: bytes) -> None:
     elif size < len(data):
         data = data[:size]
 
-    write_mem(data, size, stack_ptr)
-    stack_ptr -= size
+    write_mem(data, size, _stack_ptr)
+    _stack_ptr -= size
 
 def stack_pop(count: int) -> bytes:
     """Pops 8 bytes off the stack for specifed 'count' times and returns it concatinated"""
-    global stack_ptr
-    global memsize
+    global _stack_ptr
+    global _memsize
 
     data: bytes = b""
 
     for i in range(0, count):
-        stack_ptr += 8
-        if stack_ptr > memsize: raise ValueError("Nothing to pop, Exceeding memory limits!")
-        data += read_mem(8, stack_ptr)
+        _stack_ptr += 8
+        if _stack_ptr > _memsize: raise ValueError("Nothing to pop, Exceeding memory limits!")
+        data += read_mem(8, _stack_ptr)
 
     return data
 
+def push_frame():
+    """Starts a new stack frame"""
+    global _stack_frames, _stack_ptr
+    _stack_frames.append(_stack_ptr)
+
+def pop_frame():
+    """Ends a stack frame and restores stack pointer"""
+    global _stack_frames, _stack_ptr
+    if not _stack_frames:
+        raise RuntimeError("No stack frame to pop!")
+    _stack_ptr = _stack_frames.pop()
+
 class CBaseType():
     size = 1
-    signed = True
-
+    signed = False
     def __init__(self, value:int) -> None:
-        if signed:
-            if size == 1:
+        self.cls = type(self)
+        if self.cls.signed:
+            if self.cls.size == 1:
                 if value < -0x80 or value > 0x7F:
                     raise ValueError("Value doesn't fit in 1 bytes!")
-            elif size == 2:
+            elif self.cls.size == 2:
                 if value < -0x8000 or value > 0x7FFF:
                     raise ValueError("Value doesn't fit in 2 bytes!")
-            elif size == 4:
+            elif self.cls.size == 4:
                 if value < -0x80000000 or value > 0x7FFFFFFF:
                     raise ValueError("Value doesn't fit in 4 bytes!")
-            elif size == 8:
+            elif self.cls.size == 8:
                 if value < -0x8000000000000000 or value > 0x7FFFFFFFFFFFFFFF:
                     raise ValueError("Value doesn't fit in 8 bytes!")
             else:
-                raise ValueError(f"Unknown size: {size} bytes")
+                raise ValueError(f"Unknown size: {self.cls.size} bytes")
 
         else:
             if value < 0:
                 raise ValueError("Value is signed while it was supposed to be unsigned!")
-            if size == 1:
+            if self.cls.size == 1:
                 if value > 0xFF:
                     raise ValueError("Value doesn't fit in 1 byte!")
-            elif size == 2:
+            elif self.cls.size == 2:
                 if value > 0xFFFF:
                     raise ValueError("Value doesn't fit in 2 bytes!")
-            elif size == 4:
+            elif self.cls.size == 4:
                 if value > 0xFFFFFFFF:
                     raise ValueError("Value doesn't fit in 4 bytes!")
-            elif size == 8:
+            elif self.cls.size == 8:
                 if value > 0xFFFFFFFFFFFFFFFF:
                     raise ValueError("Value doesn't fit in 8 bytes!")
             else:
-                raise ValueError(f"Unknown size: {size} bytes")
+                raise ValueError(f"Unknown size: {self.cls.size} bytes")
 
         self.value = value
-        self.address = stack_ptr
-        stack_push(value.to_bytes(size, "little", signed=signed))
+        self.address = _stack_ptr
+        stack_push(value.to_bytes(self.cls.size, "little", signed=self.cls.signed))
 
         self.deleted = False
 
     def __repr__(self) -> str:
-        return self.value
+        return str(self.value)
 
     def __sizeof__(self) -> int:
-        return size
+        return self.cls.size
 
     def __neg__(self) -> int:
-        if not signed: raise ValueError("Cannot negate unsigned!")
+        if not self.cls.signed: raise ValueError("Cannot negate unsigned!")
         return -self.value
 
     def __pos__(self) -> int:
@@ -206,7 +228,7 @@ class CBaseType():
         else:
             val = getattr(other, "value", 0)
         self.value = self.value + val
-        write_mem(self.value.to_bytes(size, "little", signed=signed), size, self.address)
+        write_mem(self.value.to_bytes(self.cls.size, "little", signed=self.cls.signed), self.cls.size, self.address)
         return self.value
 
     def __isub__(self, other: object) -> int:
@@ -216,7 +238,7 @@ class CBaseType():
         else:
             val = getattr(other, "value", 0)
         self.value = self.value - val
-        write_mem(self.value.to_bytes(size, "little", signed=signed), size, self.address)
+        write_mem(self.value.to_bytes(self.cls.size, "little", signed=self.cls.signed), self.cls.size, self.address)
         return self.value
 
     def __index__(self) -> int:
@@ -231,6 +253,22 @@ class char(CBaseType):
     """A single byte"""
     size = 1
     signed = True
+
+    def __init__(self, value: Union[str, int]) -> None:
+        val = 0
+        if isinstance(value, str):
+            val = ord(value)
+        else:
+            val = value
+        super().__init__(val)
+
+    def __repr__(self) -> str:
+        val = ""
+        try:
+            val = chr(self.value)
+        except Exception:
+            val = self.value
+        return f"{val}"
 
 class short(CBaseType):
     """2 bytes"""
@@ -267,6 +305,25 @@ class unsigned_long(CBaseType):
     size = 8
     signed = False
 
+class double(CBaseType):
+    """64-bit floating point"""
+    size = 8
+    signed = True
+
+    def __init__(self, value: float) -> None:
+        import struct
+        self.value = float(value)
+        self.address = _stack_ptr
+        data = struct.pack("<d", self.value)
+        stack_push(data)
+        self.deleted = False
+
+    def __repr__(self):
+        return str(self.value)
+
+    def __float__(self):
+        return self.value
+
 class void():
     """Just nothing, plain void"""
     def __init__(self) -> None:
@@ -285,14 +342,37 @@ class pointer(CBaseType):
             if val < 0: raise ValueError("Address cannot be negative!")
         else:
             val = getattr(obj, "address", 0x0)
-            print("[WARNING]: Object provided to pointer doesn't have any address! Defaulting to 0x0")
+            if val == 0x0:
+                print("[WARNING]: Object provided to pointer doesn't have any address! Defaulting to 0x0")
 
         super().__init__(val)
         self.ptr_addr = val # Another self var just for ease of use for the developer
 
     def deref(self) -> bytes:
         """Dereference the pointer. &pointer"""
+        if self.typ == char:
+            data = b""
+            addr = self.ptr_addr
+            while True:
+                b_ = read_mem(1, addr)
+                if b_ == b"\x00" or len(b_) == 0:
+                    break
+                data += b_
+                addr += 1
+            return data
+
         return read_mem(getattr(self.typ, "size", 8), self.value)
+
+    def cast(self, newtype: type) -> None:
+        """Cast the pointer to another type"""
+        self.typ = newtype
+
+    def __repr__(self) -> str:
+        return f"{self.typ.__name__}* of <{hex(self.ptr_addr)}> at <{hex(self.address)}>"
+
+    @classmethod
+    def __class_getitem__(cls, *args):
+        return pointer
 
 # typedefs for ease-of-use
 ptr = pointer
@@ -308,6 +388,7 @@ UInt = unsigned_int
 ULong = unsigned_long
 size_t = unsigned_long
 Size_t = unsigned_long
+Double = double
 
 class array():
     """C-Array, Example: 
@@ -315,19 +396,24 @@ class array():
         char myarray[5] // array of 5 characters/5 bytes
     ```
     """
-    def __init__(self, typ: type, len: int) -> None:
+    def __init__(self, typ: type, len: int, address: Optional[int]=None) -> None:
         self.typ = typ
         self.len = len
         self.element_size = getattr(typ, "size", 1)
         self.total_size = self.element_size * len
-
-        global heap_nextalloc
-        base_addr = heap_nextalloc
-        heap_nextalloc += self.total_size
-        heap_registry[base_addr] = self.total_size
-        self.address = base_addr
-
-        write_mem(b"\x00"*self.total_size, self.total_size, self.address)
+        self.address = 0
+        self.deleted = True
+        if not address:
+            global _heap_nextalloc
+            base_addr = _heap_nextalloc
+            _heap_nextalloc += self.total_size
+            _heap_registry[base_addr] = self.total_size
+            self.address = base_addr
+        
+            self.deleted = False 
+            write_mem(b"\x00"*self.total_size, self.total_size, self.address)
+        else:
+            self.address = address
 
     def __getitem__(self, index: int) -> CBaseType:
         if not (0 <= index < self.len):
@@ -364,7 +450,19 @@ class array():
         return self.len
 
     def __repr__(self) -> str:
-        return f"<CArray {self.typ.__name__}[{self.len}] at {hex(self.address)} of size {self.total_size} bytes>"
+        return f"<array {self.typ.__name__}[{self.len}] at {hex(self.address)} of size {self.total_size} bytes>"
+
+    @classmethod
+    def __class_getitem__(cls, *args):
+        return array
+
+    def __del__(self) -> None:
+        if not self.deleted:
+            global _heap_registry
+            del _heap_registry[self.address]
+            self.deletd = True
+
+Array = array
 
 class struct():
     """A C-Structure, uses format like -
@@ -390,7 +488,7 @@ class struct():
     ```
     """
 
-    def __init__(self, structure: dict) -> None:
+    def __init__(self, structure: dict, address: Optional[int]=None) -> None:
         self.struct = structure
         self.offsets = {}
         self.size = 0
@@ -413,19 +511,27 @@ class struct():
                 field_size = getattr(typ, "size", 1)
             self.size += field_size
 
-        # Allocate
-        global heap_nextalloc
-        self.address = heap_nextalloc
-        heap_nextalloc += self.size
-        heap_registry[self.address] = self.size
-        write_mem(b"\x00" * self.size, self.size, self.address)
+        self.address = 0
+        self.deleted = True
+        if not address:
+            # Allocate
+            global _heap_nextalloc
+            self.address = _heap_nextalloc
+            _heap_nextalloc += self.size
+            _heap_registry[self.address] = self.size
+            write_mem(b"\x00" * self.size, self.size, self.address)
+            self.deleted = False
+        else:
+            self.address = address
 
-        # write defaults
-        for name, info in self.struct.items():
-            if "value" in info and info["value"] is not None:
-                self.__setattr__(name, info["value"])
+        # write defaults only if newly allocated
+        if not address:
+            for name, info in self.struct.items():
+                if "value" in info and info["value"] is not None:
+                    self.__setattr__(name, info["value"])
 
     def __getattr__(self, name: str) -> Any:
+        global _heap_nextalloc
         if name not in self.struct: raise ValueError(f"Unknown field [{name}]")
 
         info = self.struct[name]
@@ -437,7 +543,7 @@ class struct():
             arr_len = info.get("array_len", 1)
             arr_elementsize = getattr(arr_typ, "size", 1)
             arr = typ(arr_typ, arr_len)
-            heap_nextalloc -= arr_len * arr_elementsize # Remove it's allocation
+            _heap_nextalloc -= arr_len * arr_elementsize # Remove it's allocation
             arr.address = self.address + offset
             return arr
         elif typ == pointer:
@@ -451,18 +557,18 @@ class struct():
             return typ(val)
 
     def __setattr__(self, name: str, value: Union[int, CBaseType, array, pointer]) -> None:
-        if name in ("struct", "offsets", "size", "address"):
+        if name in ("struct", "offsets", "size", "address", "deleted"):
             super().__setattr__(name, value)
             return
 
-        if name not in self.layout:
+        if name not in self.struct:
             raise AttributeError(f"No such field '{name}'")
 
-        info = self.layout[name]
+        info = self.struct[name]
         offset = self.offsets[name]
         typ = info["type"]
 
-        if typ == CArray:
+        if typ == array:
             raise TypeError("Cannot directly assign to array field; use indexing.")
         elif typ == pointer:
             val = getattr(value, "address", value)
@@ -473,13 +579,30 @@ class struct():
 
     def __repr__(self) -> str:
         field_str = []
-        for name, info in self.layout.items():
+        for name, info in self.struct.items():
             val = getattr(self, name)
-            if isinstance(val, (CArray, pointer)):
+            if isinstance(val, (array, pointer)):
                 field_str.append(f"{name}={val}")
             else:
                 field_str.append(f"{name}={val.value}")
         return f"<struct {', '.join(field_str)} at {hex(self.address)}>"
+
+    @classmethod
+    def __class_getitem__(cls, *args):
+        return struct
+
+    @classmethod
+    def from_address(cls, structure: dict, address: int):
+        """Cast an existing memory address to a struct."""
+        return cls(structure, address)
+
+    def __del__(self) -> None:
+        if not self.deleted:
+            global _heap_registry
+            del _heap_registry[self.address]
+            self.deleted = True
+
+Struct = struct
 
 class enum:
     """C-style enum"""
@@ -502,4 +625,22 @@ class enum:
         items = ", ".join([f"{k}={v}" for k, v in self.fields.items()])
         return f"<enum {self.name}: {items}>"
 
+    @classmethod
+    def __class_getitem__(cls, *args):
+        return enum
 
+# Helpers
+def cstring(py_str: str) -> pointer:
+    """Allocates a null-terminated C string on the heap and returns a pointer to it."""
+    # Encode to bytes + null-terminator
+    encoded = py_str.encode("utf-8") + b"\x00"
+    size = len(encoded)
+
+    # Allocate memory using heap-allocater
+    global _heap_nextalloc, _heap_registry
+    addr = _heap_nextalloc
+    _heap_nextalloc += size
+    _heap_registry[addr] = size
+
+    write_mem(encoded, size, addr)
+    return pointer(addr, char)

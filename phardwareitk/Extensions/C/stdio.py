@@ -1,12 +1,9 @@
 from typing import *
 import os
 import sys
-import time
 
-if not os.path.dirname(os.path.abspath(__file__)) in sys.path:
-    sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-from C import *
+from phardwareitk.Extensions.C import *
+from phardwareitk.Extensions.C.stdlib import *
 
 do_print_exception = False
 
@@ -90,9 +87,14 @@ _IO_FILE = {
 
 typedef struct _IO_FILE FILE;"""
 
-FILE = Struct[_IO_FILE]
+FILE = struct[_IO_FILE]
 
-def fopen(path:Union[Pointer[Char], str], mode:str) -> Union[Pointer[FILE], int]:
+def _get_string(ptr: Union[pointer[char], str, None]) -> str:
+    if ptr is None: return None
+    if isinstance(ptr, str): return ptr
+    return ptr.deref()
+
+def fopen(path:Union[pointer[char], str], mode:Union[pointer[char], str]) -> Union[pointer[FILE], Int]:
     """fopen - Open a file and return a FILE struct pointer
 
     Arguments:
@@ -102,8 +104,9 @@ def fopen(path:Union[Pointer[Char], str], mode:str) -> Union[Pointer[FILE], int]
             Mode to open the file with (e.g. 'r', 'w', 'rb', ...)
 
     Returns: Pointer to FILE (_IO_FILE) struct or -1 on failure, -2 on file not found, -3 on permission error"""
-    filename = get_string(path)
-    mode = get_string(mode)
+    push_frame()
+    filename = _get_string(path)
+    mode = _get_string(mode)
 
     fd = None
 
@@ -111,10 +114,10 @@ def fopen(path:Union[Pointer[Char], str], mode:str) -> Union[Pointer[FILE], int]
         fd = open(filename, mode)
     except PermissionError as pe:
         print_exception(pe)
-        return -3
+        return Int(-3)
 
     if fd is None:
-        return -1
+        return Int(-1)
 
     buffer_size = 4096 # Default
     statvfs = None
@@ -127,42 +130,43 @@ def fopen(path:Union[Pointer[Char], str], mode:str) -> Union[Pointer[FILE], int]
         block_size = buffer_size
 
     # allocate memory for buffer
-    buf_base = malloc(buffer_size)
+    buf_base = malloc(size_t(buffer_size))
 
     # Allocate FILE struct
-    file = Struct(_IO_FILE)
+    file = struct(_IO_FILE)
     # set read values first
-    file.set("_IO_read_ptr", buf_base)
-    file.set("_IO_read_end", buf_base) # empty buffer at the start
-    file.set("_IO_read_base", buf_base)
+    file._IO_read_ptr = buf_base
+    file._IO_read_end = buf_base # empty buffer at the start
+    file._IO_read_base = buf_base
 
     # set write values
-    file.set("_IO_write_base", buf_base)
-    file.set("_IO_write_ptr", buf_base)
-    file.set("_IO_write_end", buf_base.address + buffer_size)
+    file._IO_write_base = buf_base
+    file._IO_write_ptr = buf_base
+    file._IO_write_end = buf_base.ptr_addr + buffer_size
 
     # set buffer values
-    file.set("_IO_buf_base", buf_base)
-    file.set("_IO_buf_end", buf_base.address + buffer_size)
+    file._IO_buf_base = buf_base
+    file._IO_buf_end = buf_base.ptr_addr + buffer_size
 
     # set file descriptor and block size
     try:
-        file.set("_fileno", fd.fileno())
+        file._fileno = Int(fd.fileno())
     except Exception as e:
         print_exception(e)
-        file.set("_fileno", -1)
+        file._fileno = Int(-1)
 
-    file.set("_blksize", block_size)
+    file._blksize = Int(block_size)
 
     # Store the file descriptor in a global dictionary to keep track of open files
     if "_open_files" not in globals():
         global _open_files
         _open_files = {}
-    _open_files[file.access("_fileno")] = fd
+    _open_files[file._fileno] = fd
 
-    return Pointer(Struct, file, True) # Return
+    pop_frame()
+    return pointer(file, struct) # Return
 
-def fclose(file_:Pointer[FILE]) -> int:
+def fclose(file_:pointer[FILE]) -> Int:
     """fclose - Close a file and free its memory
 
     Arguments:
@@ -171,9 +175,10 @@ def fclose(file_:Pointer[FILE]) -> int:
 
     Returns: 0 on success, -1 on failure"""
     try:
+        push_frame()
         # Dereference the pointer
-        file: Struct = file_.dereference()
-        fileno = file.access("_fileno")
+        file: struct = struct.from_address(_IO_FILE, file_.ptr_addr)
+        fileno = file._fileno.value
 
         # Get the file descriptor from the global dictionary
         fd:TextIO = _open_files.get(fileno, None)
@@ -191,13 +196,13 @@ def fclose(file_:Pointer[FILE]) -> int:
 
         # Remove the file descriptor from the global dictionary
         del _open_files[fileno]
-
-        return 0
+        pop_frame()
+        return Int(0)
     except Exception as e:
         print_exception(e)
-        return -1
+        return Int(-1)
 
-def ftell(file: Pointer[FILE]) -> int:
+def ftell(file: pointer[FILE]) -> size_t:
     """ftell - Get the current position in the file
 
     Arguments:
@@ -207,19 +212,21 @@ def ftell(file: Pointer[FILE]) -> int:
     Returns: Current position in the file or -1 on failure"""
     try:
         # Dereference the pointer
-        file_struct: Struct = file.dereference()
-        fd = _open_files.get(file_struct.access("_fileno"))
+        push_frame()
+        file_struct: struct = struct.from_address(_IO_FILE, file.ptr_addr)
+        fd = _open_files.get(file_struct._fileno.value)
         if not fd:
             del file_struct
             return -1
         out = fd.tell()
         del file_struct
-        return out
+        pop_frame()
+        return size_t(out)
     except Exception as e:
         print_exception(e)
-        return -1
+        return Int(-1)
 
-def fflush(file: Pointer[FILE]) -> int:
+def fflush(file: pointer[FILE]) -> Int:
     """fflush - Flush the output buffer of a file
 
     Arguments:
@@ -229,21 +236,22 @@ def fflush(file: Pointer[FILE]) -> int:
     Returns: 0 on success, -1 on failure"""
     try:
         # Dereference the pointer
-        file_struct: Struct = file.dereference()
-        fd:TextIO = _open_files.get(file_struct.access("_fileno"), None)
+        file_struct: struct = struct.from_address(_IO_FILE, file.ptr_addr)
+        fd:TextIO = _open_files.get(file_struct._fileno.value, None)
 
         if fd is None:
-            return -1
+            return Int(-1)
 
         # Flush the file
         fd.flush()
         del file_struct
-        return 0
+        pop_frame()
+        return Int(0)
     except Exception as e:
         print_exception(e)
-        return -1
+        return Int(-1)
 
-def fseek(file: Pointer[FILE], offset: int, whence: int) -> int:
+def fseek(file: pointer[FILE], offset: Int, whence: Int) -> Int:
     """fseek - Set the file position indicator for the stream
 
     Arguments:
@@ -257,98 +265,94 @@ def fseek(file: Pointer[FILE], offset: int, whence: int) -> int:
     Returns: 0 on success, -1 on failure"""
     try:
         # Dereference the pointer
-        file_struct: Struct = file.dereference()
-        fd:TextIO = _open_files.get(file_struct.access("_fileno"), None)
+        push_frame()
+        file_struct: struct = struct.from_address(_IO_FILE, file.ptr_addr)
+        fd:TextIO = _open_files.get(file_struct._fileno.value, None)
 
         if fd is None:
-            return -1
+            return Int(-1)
 
-        fd.seek(offset, whence)
+        fd.seek(offset.value, whence.value)
         del file_struct
-        return 0
+        pop_frame()
+        return Int(0)
     except Exception as e:
         print_exception(e)
-        return -1
+        return Int(-1)
 
-def fread(dest: Pointer[Void], size: Union[int, Size_t], nmemb: Union[int, Size_t], file_ptr: Pointer[FILE]) -> int:
+def fread(dest: pointer[void], size: size_t, nmemb: size_t, file_ptr: pointer[FILE]) -> Int:
     """fread - Read data from a file
 
     Args:
-        dest (Pointer[Void]): The destination pointer where data will be stored
-        size (int): size of each element to read
-        nmemb (int): number of elements to read
-        file_ptr (Pointer[FILE]): Pointer to the FILE struct
+        dest (void*): The destination pointer where data will be stored
+        size (size_t): size of each element to read
+        nmemb (size_t): number of elements to read
+        file_ptr (FILE*): Pointer to the FILE struct
 
     Returns:
         int: Number of elements successfully read, or -1 on failure
     """
-    if isinstance(size, Size_t):
-        size = size.bytes
-
-    if isinstance(nmemb, Size_t):
-        nmemb = nmemb.bytes
-
-    if not isinstance(size, int) or not isinstance(nmemb, int):
-        raise TypeError("size and nmemb must be int or Size_t")
+    size = size.value
+    nmemb = nmemb.value
 
     try:
+        push_frame()
         # Dereference the pointer
-        file:FILE = file_ptr.dereference()
+        file: struct = struct.from_address(_IO_FILE, file_ptr.ptr_addr)
         total_bytes = size * nmemb
 
-        fileno = file.access("_fileno")
+        fileno = file._fileno.value
         fd:TextIO = _open_files.get(fileno, None)
         if fd is None:
-            return -1
+            return Int(-1)
 
         data = fd.read(total_bytes)
         if not data:
-            return 0
+            return Int(0)
+
+        if isinstance(data, str): data = data.encode("utf-8")
 
         # Write data to the destination pointer
-        write(dest, data, total_bytes, no_meta=True)
+        write_mem(data, size.value, dest.ptr_addr)
 
         # Update the read pointer
-        buf_base = file.access("_IO_buf_base")
-        file.set("_IO_read_ptr", Pointer(buf_base.address + len(data)))
-        file.set("_IO_read_end", Pointer(buf_base.address + total_bytes))
+        buf_base = file._IO_buf_base
+        file._IO_read_ptr = pointer(char, buf_base.ptr_addr + len(data))
+        file._IO_read_end = pointer(char, buf_base.ptr_addr + total_bytes)
 
         del file
 
-        return len(data) // size
+        pop_frame()
+        return Int(len(data) // size)
 
     except Exception as e:
         print_exception(e)
-        return -1
+        return Int(-1)
 
-def fwrite(src: Union[Pointer[Void], str, bytes], size: Union[int, Size_t], nmemb: Union[int, Size_t], file_ptr: Pointer[FILE], chunk_size:int=4096) -> int:
+def fwrite(src: Union[pointer[void], str, bytes], size: size_t, nmemb: size_t, file_ptr: pointer[FILE], chunk_size:Optional[Int]=None) -> Int:
     """fwrite - Write data to a file
     
     Args:
-        src (Pointer[Void]): The source pointer containing data to write
-        size (int): size of each element to write
-        nmemb (int): number of elements to write
-        file_ptr (Pointer[FILE]): Pointer to the FILE struct
+        src (void*): The source pointer containing data to write
+        size (size_t): size of each element to write
+        nmemb (size_t): number of elements to write
+        file_ptr (FILE*): Pointer to the FILE struct
         chunk_size (int): Writing files in chunk to prevent overuse of memory. Defaults to 4096 bytes / 4KB
 
     Returns:
         int: Number of elements successfully written, or -1 on failure
     """
-    if isinstance(size, Size_t):
-        size = size.bytes
-
-    if isinstance(nmemb, Size_t):
-        nmemb = nmemb.bytes
-
-    if not isinstance(size, int) or not isinstance(nmemb, int):
-        raise TypeError("size and nmemb must be int or Size_t")
+    size = size.value
+    nmemb = nmemb.value
+    chunk_size = chunk_size.value if chunk_size else 4096
 
     try:
+        push_frame()
         # Dereference the pointer
-        file:FILE = file_ptr.dereference()
+        file:struct = struct.from_address(_IO_FILE, file_ptr.ptr_addr)
         total_bytes = size * nmemb
 
-        fileno = file.access("_fileno")
+        fileno = file._fileno.value
         fd:TextIO = _open_files.get(fileno, None)
         if fd is None:
             return -1
@@ -356,14 +360,14 @@ def fwrite(src: Union[Pointer[Void], str, bytes], size: Union[int, Size_t], nmem
         written = 0
         srcaddr = None
         if isinstance(src, Pointer):
-            srcaddr = src.pointer_address
+            srcaddr = src.ptr_addr
         
         while written < total_bytes:
             # Read data from the source pointer
             to_write = min(chunk_size, total_bytes - written)
             
             if isinstance(src, Pointer):
-                data = get_mem(srcaddr + written, to_write)
+                data = read_mem(to_write, srcaddr + written)
             else:
                 data = src
     
@@ -378,18 +382,19 @@ def fwrite(src: Union[Pointer[Void], str, bytes], size: Union[int, Size_t], nmem
             written += to_write
 
         # Update the write pointer
-        buf_base = file.access("_IO_buf_base")
-        file.set("_IO_write_ptr", Pointer(buf_base.address + written))
+        buf_base = file._IO_buf_base
+        file._IO_write_ptr = pointer(char, buf_base.ptr_addr + written)
 
         del file
-
-        return len(data) // size
+        
+        pop_frame()
+        return Int(len(data) // size)
 
     except Exception as e:
         print_exception(e)
-        return -1
+        return Int(-1)
 
-def remove(filename: Union[Pointer[Char], str]) -> int:
+def remove(filename: Union[pointer[char], str]) -> Int:
     """remove - Remove a file
 
     Arguments:
@@ -398,19 +403,21 @@ def remove(filename: Union[Pointer[Char], str]) -> int:
 
     Returns: 0 on success, -1 on failure"""
     try:
-        os.remove(get_string(filename))
-        return 0
+        push_frame()
+        os.remove(_get_string(filename))
+        pop_frame()
+        return Int(0)
     except FileNotFoundError as fe:
         print_exception(fe)
-        return -2
+        return Int(-2)
     except PermissionError as pe:
         print_exception(pe)
-        return -3
+        return Int(-3)
     except Exception as e:
         print_exception(e)
-        return -1
+        return Int(-1)
 
-def rename(old_filename: Union[Pointer[Char], str], new_filename: Union[Pointer[Char], str]) -> int:
+def rename(old_filename: Union[pointer[char], str], new_filename: Union[pointer[char], str]) -> Int:
     """rename - Rename a file
 
     Arguments:
@@ -421,15 +428,17 @@ def rename(old_filename: Union[Pointer[Char], str], new_filename: Union[Pointer[
 
     Returns: 0 on success, -1 on failure"""
     try:
-        os.rename(get_string(old_filename), get_string(new_filename))
-        return 0
+        push_frame()
+        os.rename(_get_string(old_filename), _get_string(new_filename))
+        pop_frame()
+        return Int(0)
     except FileNotFoundError as fe:
         print_exception(fe)
-        return -2
+        return Int(-2)
     except PermissionError as pe:
         print_exception(pe)
-        return -3
+        return Int(-3)
     except Exception as e:
         print_exception(e)
-        return -1
+        return Int(-1)
 

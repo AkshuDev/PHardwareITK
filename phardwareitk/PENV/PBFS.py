@@ -10,7 +10,9 @@ if not MPATH in sys.path:
     sys.path.append(MPATH)
 
 from Extensions.C import *
-from Extensions.C_IO import *
+from Extensions.C.stdlib import *
+from Extensions.C.stdio import *
+from Extensions.C.stdint import *
 
 PBFS_HEADER = {
     "Magic": {"type": Pointer, "ptr_type": Char, "value": None},
@@ -182,35 +184,38 @@ def round_up_to_block(size: int, block_size: int = 512) -> int:
 
 def validate_disk(path: str, block_size: int = 512) -> bool:
     """Validates the Drive"""
+    push_frame()
     if not os.path.exists(path):
         return False
 
     drive: Pointer[FILE] = fopen(path, "rb")
-    PBFS_Header = Struct(PBFS_HEADER)
-    fseek(drive, 0, SEEK_END)
+    fseek(drive, Int(0), Int(SEEK_END))
     size = ftell(drive)
-    fseek(drive, 0, SEEK_SET)
-    buffer_ = malloc(block_size)
+    fseek(drive, Int(0), Int(SEEK_SET))
+    buffer_ = malloc(size_t(block_size))
     buffer_.cast(Char)
-    fseek(drive, block_size, SEEK_SET)
-    fread(buffer_, block_size, 1, drive)
-    err = PBFS_Header.fill_b(read(buffer_, size))
+    fseek(drive, Int(block_size), Int(SEEK_SET))
+    fread(buffer_, size_t(block_size), size_t(1), drive)
+    err = struct.from_address(PBFS_HEADER, buffer_.ptr_addr)
     if err == -1:
         print("Incorrect data in file: Validation Failed!")
         free(buffer_)
         fclose(drive)
+        pop_frame()
         return False
 
-    magic = PBFS_Header.access("Magic")
-    magic_val = read(magic, 6)
+    magic = err.Magic
+    magic_val = magic.deref()
     if not magic_val == b"PBFS\x00\x00":
         print("Signature doesn't Match! Validation failed!")
         free(buffer_)
         fclose(drive)
+        pop_frame()
         return False
 
     free(buffer_)
     fclose(drive)
+    pop_frame()
     return True
 
 def format_disk(
@@ -221,35 +226,34 @@ def format_disk(
 ) -> int:
     """Formates the Drive"""
     reset_mem(memsize) # Always ensure clean slate
+    push_frame()
     print("Formatting disk...")
     file: Pointer[FILE] = fopen(path, "wb+")
     try:
+        lba_buff = malloc(size_t(block_size))
+        if not lba_buff: return -1
         # Now we format it
-        PBFS_Header = Struct(PBFS_HEADER)
-        PBFS_Header.set("Magic", b"PBFS\x00\x00")
-        PBFS_Header.set("Block_Size", Uint32_t(block_size))
-        PBFS_Header.set("Total_Blocks", Uint32_t(total_blocks))
-        PBFS_Header.set("Disk_Name", disk_name)
-        PBFS_Header.set("TimeStamp", Uint64_t(int(time.time())))
-        PBFS_Header.set("Version", Uint32_t(1))
-        PBFS_Header.set("Entries", Uint32_t(0))
-        PBFS_Header.set("First_Boot_Timestamp", Uint64_t(0))
-        PBFS_Header.set("OS_BootMode", Uint16_t(1))
-
         print("Formatting...")
-        lba_buff = malloc(block_size)
-        write(lba_buff, b"\x00" * block_size, block_size, no_meta=True)
-        fwrite(lba_buff, block_size, 1, file)
+        write_mem(b"\x00" * block_size, block_size, lba_buff.ptr_addr)
+        fwrite(lba_buff, size_t(block_size), size_t(1), file)
 
-        err = PBFS_Header.write_b(lba_buff)
-        if err < 0:
-            print("Error Occured, Quitting!")
-            return -1
-
-        del PBFS_Header
         print("Writing PBFS Header...")
-        fwrite(lba_buff, block_size, 1, file)
-        write(lba_buff, b"\x00" * block_size, block_size, no_meta=True)
+        PBFS_Header = struct.from_address(PBFS_HEADER, lba_buff.ptr_addr)
+        PBFS_Header.Magic = cstring("PBFS\x00\x00")
+        PBFS_Header.Block_Size = Uint32_t(block_size)
+        PBFS_Header.Total_Blocks = Uint32_t(total_blocks)
+        PBFS_Header.Disk_Name = cstring(disk_name.decode("utf-8"))
+        PBFS_Header.TimeStamp = Uint64_t(int(time.time()))
+        PBFS_Header.Version = Uint32_t(1)
+        PBFS_Header.Entries = Uint32_t(0)
+        PBFS_Header.First_Boot_Timestamp = Uint64_t(0)
+        PBFS_Header.OS_BootMode = Uint16_t(1)
+
+        print(read_mem(68, lba_buff.ptr_addr))
+
+        print("Writing...")
+        fwrite(lba_buff, size_t(block_size), size_t(1), file)
+        write_mem(b"\x00" * block_size, block_size, lba_buff.ptr_addr)
         
         # Create bitmap
         print("Creating Bitmap")
@@ -268,10 +272,10 @@ def format_disk(
         bmap = make_bitmap(total_blocks, 3)
         space_needed = (total_blocks + 7) // 8
         
-        write(lba_buff, bmap, space_needed, no_meta=True)
-        fwrite(lba_buff, block_size, space_needed, file)
+        write_mem(bmap, space_needed, lba_buff.ptr_addr)
+        fwrite(lba_buff, size_t(block_size), size_t(space_needed), file)
         
-        fwrite(b"\x00" * block_size, block_size, total_blocks - (1 + space_needed), file)
+        fwrite(b"\x00" * block_size, size_t(block_size), size_t(total_blocks - (1 + space_needed)), file)
         
         print("Done formatting disk...")
         fflush(file)
@@ -280,11 +284,13 @@ def format_disk(
         fclose(file)
         free(lba_buff)
         print("FAILED!")
+        pop_frame()
         return -1
     fclose(file)
     free(lba_buff)
 
     print("Finished!")
+    pop_frame()
 
     return 0
 
@@ -294,6 +300,11 @@ def increase_memsize(size_: int):
     global memsize
     memsize = size_
     reset_mem(size_)
+
+def initialize_pbfs(size_: int):
+    global memsize
+    memsize = size_
+    initialize(size_)
 
 
 class PBFS:

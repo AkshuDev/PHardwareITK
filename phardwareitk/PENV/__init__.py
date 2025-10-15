@@ -25,7 +25,9 @@ if module_path not in sys.path:
 from phardwareitk.Memory import Memory as memory
 from phardwareitk.PENV.shared import *
 from phardwareitk.Extensions.C import *
-from phardwareitk.Extensions.C_IO import *
+from phardwareitk.Extensions.C.stdlib import *
+from phardwareitk.Extensions.C.stdio import *
+from phardwareitk.Extensions.C.stdint import *
 
 win32, posix, unknown, os_ = get_os()
 
@@ -113,22 +115,22 @@ def start_penv(
 
     memsize_part = process_ram_size // 4
 
-    reset_mem(memsize_part, debug=True)
-    PBFS.increase_memsize(memsize_part)
+    initialize(memsize_part)
+    PBFS.initialize_pbfs(memsize_part)
 
     cmem = get_memory()
 
     if PBFS.validate_disk(PBFS_DISK, block_size) == False or format_drive:
         print("Creating PBFS Disk...")
-        err = PBFS.format_disk(PBFS_DISK, total_blocks, block_size, disk_name)
+        err = PBFS.format_disk(PBFS_DISK, total_blocks, block_size, b"disk_name")
         if err < 0:
-            exit(err)
+            sys.exit(err)
     
     fs = PBFS.PBFS(PBFS_DISK, block_size, total_blocks)
     
     if not os == "":
         print("Formatting Drive...")
-        PBFS.format_disk(PBFS_DISK, total_blocks, block_size, disk_name)
+        PBFS.format_disk(PBFS_DISK, total_blocks, block_size, b"disk_name")
         print("Downloading OS...")
         copy_folder_to_pbfs(fs, os)
         print("Downloaded OS...")
