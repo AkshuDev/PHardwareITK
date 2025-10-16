@@ -459,8 +459,11 @@ class array():
     def __del__(self) -> None:
         if not self.deleted:
             global _heap_registry
-            del _heap_registry[self.address]
-            self.deletd = True
+            try:
+                del _heap_registry[self.address]
+            except KeyError:
+                pass
+            self.deleted = True
 
 Array = array
 
@@ -506,7 +509,7 @@ class struct():
             if typ == array:
                 arr_typ = info.get("array_type", char)
                 arr_len = info.get("array_len", 1)
-                field_size = arr_typ * arr_len
+                field_size = arr_typ.size * arr_len
             else:
                 field_size = getattr(typ, "size", 1)
             self.size += field_size
@@ -556,7 +559,7 @@ class struct():
             val = int.from_bytes(raw, "little", signed=getattr(typ, "signed", False))
             return typ(val)
 
-    def __setattr__(self, name: str, value: Union[int, CBaseType, array, pointer]) -> None:
+    def __setattr__(self, name: str, value: Union[int, CBaseType, array, pointer, bytes, str]) -> None:
         if name in ("struct", "offsets", "size", "address", "deleted"):
             super().__setattr__(name, value)
             return
@@ -569,9 +572,39 @@ class struct():
         typ = info["type"]
 
         if typ == array:
+            mk_arr = False
+            val = b""
+            if isinstance(value, bytes):
+                val = value
+                mk_arr = True
+            elif isinstance(value, str):
+                val = value.encode("utf-8")
+                mk_arr = True
+
+            if mk_arr:
+                arr = array(info.get("array_type", char), info.get("array_len", 1), self.address + offset) # Creates the arr
+                for i in range(arr.len):
+                    b = b""
+                    if i >= len(val):
+                        b = 0
+                    else:
+                        b = val[i]
+                    arr[i] = b
+                off = 0
+                for i in range(arr.len):
+                    arrval = arr[i]
+                    if isinstance(arrval, char):
+                        arrval = chr(arrval.value).encode("utf-8")
+                    else:
+                        arrval = arrval.value
+                    write_mem(arrval, arr.element_size, self.address + offset + off)
+                    off += arr.element_size
+                return
             raise TypeError("Cannot directly assign to array field; use indexing.")
         elif typ == pointer:
-            val = getattr(value, "address", value)
+            if isinstance(value, int):
+                value = pointer(value, info.get("ptr_type", void)) # Fix
+            val = value.ptr_addr
             write_mem(val.to_bytes(8, "little"), 8, self.address + offset)
         else:
             val = getattr(value, "value", value)

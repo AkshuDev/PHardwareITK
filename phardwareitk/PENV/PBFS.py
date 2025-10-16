@@ -15,10 +15,10 @@ from Extensions.C.stdio import *
 from Extensions.C.stdint import *
 
 PBFS_HEADER = {
-    "Magic": {"type": Pointer, "ptr_type": Char, "value": None},
+    "Magic": {"type": Array, "array_type": Char, "array_len": 6, "value": None},
     "Block_Size": {"type": Uint32_t, "value": None},
     "Total_Blocks": {"type": Uint32_t, "value": None},
-    "Disk_Name": {"type": Pointer, "ptr_type": Char, "value": None},
+    "Disk_Name": {"type": Array, "array_type": Char, "array_len": 24, "value": None},
     "TimeStamp": {"type": Uint64_t, "value": None},
     "Version": {"type": Uint32_t, "value": None},
     "First_Boot_Timestamp": {"type": Uint64_t, "value": None},
@@ -40,14 +40,14 @@ PBFS_HEADER = {
 } __attribute__((packed)) PBFS_Header; // Total = 68 bytes"""
 
 PBFS_FILE_TABLE_ENTRY = {
-    "Name": {"type": Pointer, "ptr_type": Char, "value": None},
+    "Name": {"type": Array, "array_type": Char, "array_len": 150, "value": None},
     "File_Data_Offset": {"type": Uint64_t, "value": None},
     "Permission_Table_Offset": {"type": Uint64_t, "value": None},
     "Block_Span": {"type": Uint64_t, "value": None},
 }
 
 """typedef struct {
-	char* Name; // Name of the file
+	char Name[150]; // Name of the file
 	uint64_t File_Data_Offset; // File data offset
 	uint64_t Permission_Table_Offset; // Permission table offset
 	uint64_t Block_Span; // File Block Span
@@ -78,7 +78,7 @@ PBFS_PERMISSION_TABLE_ENTRY = {
 } __attribute__((packed)) PBFS_PermissionTableEntry; // Total = 20 bytes"""
 
 PBFS_FILE_TREE_ENTRY = {
-    "Name": {"type": Array, "array_type": Char, "array_size": 20, "value": None}
+    "Name": {"type": Array, "array_type": Char, "array_len": 20, "value": None}
 }
 
 """typedef struct {
@@ -205,7 +205,7 @@ def validate_disk(path: str, block_size: int = 512) -> bool:
         return False
 
     magic = err.Magic
-    magic_val = magic.deref()
+    magic_val = pointer(magic.address, char).deref()
     if not magic_val == b"PBFS\x00\x00":
         print("Signature doesn't Match! Validation failed!")
         free(buffer_)
@@ -229,9 +229,16 @@ def format_disk(
     push_frame()
     print("Formatting disk...")
     file: Pointer[FILE] = fopen(path, "wb+")
+
+    if isinstance(file, Int):
+        print("Opening the file failed:", file)
+        return -1
+
     try:
         lba_buff = malloc(size_t(block_size))
-        if not lba_buff: return -1
+        if not lba_buff: 
+            print("Alloc failed!")
+            return -1
         # Now we format it
         print("Formatting...")
         write_mem(b"\x00" * block_size, block_size, lba_buff.ptr_addr)
@@ -239,17 +246,15 @@ def format_disk(
 
         print("Writing PBFS Header...")
         PBFS_Header = struct.from_address(PBFS_HEADER, lba_buff.ptr_addr)
-        PBFS_Header.Magic = cstring("PBFS\x00\x00")
+        PBFS_Header.Magic = b"PBFS\x00\x00"
         PBFS_Header.Block_Size = Uint32_t(block_size)
         PBFS_Header.Total_Blocks = Uint32_t(total_blocks)
-        PBFS_Header.Disk_Name = cstring(disk_name.decode("utf-8"))
+        PBFS_Header.Disk_Name = disk_name
         PBFS_Header.TimeStamp = Uint64_t(int(time.time()))
         PBFS_Header.Version = Uint32_t(1)
         PBFS_Header.Entries = Uint32_t(0)
         PBFS_Header.First_Boot_Timestamp = Uint64_t(0)
         PBFS_Header.OS_BootMode = Uint16_t(1)
-
-        print(read_mem(68, lba_buff.ptr_addr))
 
         print("Writing...")
         fwrite(lba_buff, size_t(block_size), size_t(1), file)

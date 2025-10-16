@@ -161,7 +161,7 @@ def fopen(path:Union[pointer[char], str], mode:Union[pointer[char], str]) -> Uni
     if "_open_files" not in globals():
         global _open_files
         _open_files = {}
-    _open_files[file._fileno] = fd
+    _open_files[fd.fileno()] = fd
 
     pop_frame()
     return pointer(file, struct) # Return
@@ -317,8 +317,8 @@ def fread(dest: pointer[void], size: size_t, nmemb: size_t, file_ptr: pointer[FI
 
         # Update the read pointer
         buf_base = file._IO_buf_base
-        file._IO_read_ptr = pointer(char, buf_base.ptr_addr + len(data))
-        file._IO_read_end = pointer(char, buf_base.ptr_addr + total_bytes)
+        file._IO_read_ptr = pointer(buf_base.ptr_addr + len(data), char)
+        file._IO_read_end = pointer(buf_base.ptr_addr + total_bytes, char)
 
         del file
 
@@ -355,40 +355,32 @@ def fwrite(src: Union[pointer[void], str, bytes], size: size_t, nmemb: size_t, f
         fileno = file._fileno.value
         fd:TextIO = _open_files.get(fileno, None)
         if fd is None:
-            return -1
+            return Int(-1)
         
         written = 0
-        srcaddr = None
-        if isinstance(src, Pointer):
-            srcaddr = src.ptr_addr
+        srcaddr = src.ptr_addr
         
-        while written < total_bytes:
-            # Read data from the source pointer
-            to_write = min(chunk_size, total_bytes - written)
-            
-            if isinstance(src, Pointer):
-                data = read_mem(to_write, srcaddr + written)
-            else:
-                data = src
-    
+        offset = 0
+        for i in range(nmemb):
+            buf = read_mem(size, srcaddr + offset)
             if not 'b' in fd.mode:
                 try:
-                    data = data.decode('utf-8')
+                    buf = buf.decode("utf-8")
                 except UnicodeDecodeError:
-                    return -1
-    
-            # Write data to the file
-            fd.write(data)
-            written += to_write
+                    return Int(-1)
 
+            fd.write(buf)
+            written += 1
+            offset += size
+      
         # Update the write pointer
         buf_base = file._IO_buf_base
-        file._IO_write_ptr = pointer(char, buf_base.ptr_addr + written)
+        file._IO_write_ptr = pointer(buf_base.ptr_addr + written, char)
 
         del file
         
         pop_frame()
-        return Int(len(data) // size)
+        return Int(written)
 
     except Exception as e:
         print_exception(e)
