@@ -12,9 +12,9 @@ print("Creating Ion...")
 ionhandler = PheonixIon()
 print("Creating Window...")
 win = ionhandler.create_window()
-# print("Attaching GPU Context")
-# ctx = ionhandler.get_gpu(win)
-# ionhandler.attach_gpu(win, ctx)
+print("Attaching GPU Context")
+ctx = ionhandler.get_gpu(win)
+ionhandler.attach_gpu(win, ctx)
 print("Handle: ", ionhandler.get_native_handle(win))
 print("Handles: ", ionhandler.windows)
 running = True
@@ -28,12 +28,12 @@ a = 255
 while running:
     event: list[PIonEvent] = ionhandler.poll_events(win)
     if len(event) == 0: continue
-    if event[0].type == PIonEvent_Types.LEFT_DOWN:
+    if event[0].type == PIonEvent_Types["LEFT_DOWN"]:
         ctx.driver.clear(r, g, b, a)
         r += 10
         g += 5
         b += 2
-    elif event[0].type == PIonEvent_Types.DESTROY:
+    elif event[0].type == PIonEvent_Types["DESTROY"]:
         ionhandler.destroy_window(win)
         running = False
 

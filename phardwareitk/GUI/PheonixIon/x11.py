@@ -1,10 +1,10 @@
 import ctypes
 import os
-from ctypes import c_int, c_ulong, c_char_p, c_void_p, POINTER, c_long, c_uint
+from ctypes import c_int, c_ulong, c_char_p, c_void_p, POINTER, c_long, c_uint, cdll
 
 from phardwareitk.GPU._base import BaseGPUD
 from phardwareitk.GUI.PheonixIon.types import *
-from phardwareitk.GUI.pheonix_ion import GPU_API
+from phardwareitk.GUI.pheonix_ion import GPU_API, PIonContext
 
 libX11 = ctypes.cdll.LoadLibrary("libX11.so.6")
 
@@ -54,6 +54,33 @@ class XSetWindowAttributes(ctypes.Structure):
         ("cursor", c_ulong),
     ]
 
+class XWindowAttributes(ctypes.Structure):
+    _fields_ = [
+        ("x", c_int),
+        ("y", c_int),
+        ("width", c_int),
+        ("height", c_int),
+        ("border_width", c_int),
+        ("depth", c_int),
+        ("visual", c_void_p),
+        ("root", Window),
+        ("class_", c_int),
+        ("bit_gravity", c_int),
+        ("win_gravity", c_int),
+        ("backing_store", c_int),
+        ("backing_planes", c_ulong),
+        ("backing_pixel", c_ulong),
+        ("save_under", Bool),
+        ("colormap", Colormap),
+        ("map_installed", Bool),
+        ("map_state", c_int),
+        ("all_event_masks", c_long),
+        ("your_event_mask", c_long),
+        ("do_not_propagate_mask", c_long),
+        ("override_redirect", Bool),
+        ("screen", c_void_p),
+    ]
+
 libX11.XCreateSimpleWindow.restype = ctypes.c_ulong
 libX11.XCreateWindow.argtypes = [
     Display, Window,
@@ -97,6 +124,12 @@ libX11.XDestroyWindow.restype = c_int
 
 libX11.XFlush.argtypes = [Display]
 libX11.XFlush.restype = c_int
+
+libX11.XBlackPixel.argtypes = [Display, c_int]
+libX11.XBlackPixel.restype = c_ulong
+
+libX11.XWhitePixel.argtypes = [Display, c_int]
+libX11.XWhitePixel.restype = c_ulong
 
 _display = None
 
@@ -254,35 +287,21 @@ def create_window(title: str="Pheonix Ion", width:int=800, height:int=600, flags
 
     screen = libX11.XDefaultScreen(display)
     root = libX11.XRootWindow(display, screen)
-    visual = libX11.XDefaultVisual(display, screen)
-    depth = libX11.XDefaultDepth(display, screen)
+
+    black = libX11.XBlackPixel(display, screen)
+    white = libX11.XWhitePixel(display, screen)
 
     if not flags:
-        flags = PIX11Flags(100, 100, width, height, 1, 0, 0)
+        flags = PIX11Flags(100, 100, width, height, 1, black, white)
 
-    colormap = libX11.XCreateColormap(display, root, visual, 0)
-
-    # Prepare window attributes
-    CWColormap = 0x0100
-    CWEventMask = 0x0001
-
-    valuemask = CWColormap | CWEventMask
-
-    swa = XSetWindowAttributes()
-    ctypes.memset(ctypes.byref(swa), 0, ctypes.sizeof(swa))
-    swa.colormap = colormap
-    swa.event_mask = X_EVENT_MASK
-
-    window = libX11.XCreateWindow(
-        display, root,
+    window = libX11.XCreateSimpleWindow(
+        display,
+        root,
         flags.x, flags.y,
         flags.width, flags.height,
         flags.border,
-        depth, # Depth from XDefaultDepth
-        1, # InputOutput
-        visual,
-        valuemask,
-        ctypes.byref(swa)
+        flags.border_color,
+        flags.background
     )
 
     if not window:
@@ -291,8 +310,6 @@ def create_window(title: str="Pheonix Ion", width:int=800, height:int=600, flags
     # Set title, select input, and map window
     libX11.XStoreName(display, window, title.encode("utf-8"))
     libX11.XSelectInput(display, window, X_EVENT_MASK)
-    libX11.XMapWindow(display, window)
-    libX11.XFlush(display)
 
     return (display, window)
 
@@ -317,90 +334,101 @@ def destroy_window(window_tuple):
 
 def poll_events(window_tuple):
     display, window = window_tuple
+
+    if not display:
+        # No valid display, probably running headless
+        return []
+
     event = XEvent()
     events = []
+    
+    try:
+        while True:
+            pending = libX11.XPending(display)
+            if pending <= 0:
+                break
+            libX11.XNextEvent(display, ctypes.byref(event))
+            e_type = event.type
+            e = event # shortcut
 
-    while libX11.XPending(display):
-        libX11.XNextEvent(display, ctypes.byref(event))
-        e_type = event.type
-        e = event  # shortcut
+            # --- Keyboard ---
+            if e_type == 2:   # KeyPress
+                events.append(PIonEvent("KEYDOWN", keycode=e.xkey.keycode, x=e.xkey.x, y=e.xkey.y))
+            elif e_type == 3: # KeyRelease
+                events.append(PIonEvent("KEYUP", keycode=e.xkey.keycode, x=e.xkey.x, y=e.xkey.y))
 
-        # --- Keyboard ---
-        if e_type == 2:   # KeyPress
-            events.append(PIonEvent("KEYDOWN", keycode=e.xkey.keycode, x=e.xkey.x, y=e.xkey.y))
-        elif e_type == 3: # KeyRelease
-            events.append(PIonEvent("KEYUP", keycode=e.xkey.keycode, x=e.xkey.x, y=e.xkey.y))
+            # --- Mouse Buttons ---
+            elif e_type == 4: # ButtonPress
+                button = e.xbutton.button
+                name = {1: "LEFT_DOWN", 2: "MIDDLE_DOWN", 3: "RIGHT_DOWN"}.get(button, "MOUSEDOWN")
+                events.append(PIonEvent(name, button=button, x=e.xbutton.x, y=e.xbutton.y))
+            elif e_type == 5: # ButtonRelease
+                button = e.xbutton.button
+                name = {1: "LEFT_UP", 2: "MIDDLE_UP", 3: "RIGHT_UP"}.get(button, "MOUSEUP")
+                events.append(PIonEvent(name, button=button, x=e.xbutton.x, y=e.xbutton.y))
 
-        # --- Mouse Buttons ---
-        elif e_type == 4: # ButtonPress
-            button = e.xbutton.button
-            name = {1: "LEFT_DOWN", 2: "MIDDLE_DOWN", 3: "RIGHT_DOWN"}.get(button, "MOUSEDOWN")
-            events.append(PIonEvent(name, button=button, x=e.xbutton.x, y=e.xbutton.y))
-        elif e_type == 5: # ButtonRelease
-            button = e.xbutton.button
-            name = {1: "LEFT_UP", 2: "MIDDLE_UP", 3: "RIGHT_UP"}.get(button, "MOUSEUP")
-            events.append(PIonEvent(name, button=button, x=e.xbutton.x, y=e.xbutton.y))
+            # --- Motion ---
+            elif e_type == 6: # MotionNotify
+                events.append(PIonEvent("MOUSEMOVE", x=e.xbutton.x, y=e.xbutton.y))
 
-        # --- Motion ---
-        elif e_type == 6: # MotionNotify
-            events.append(PIonEvent("MOUSEMOVE", x=e.xbutton.x, y=e.xbutton.y))
+            # --- Window crossing ---
+            elif e_type == 7: # EnterNotify
+                events.append(PIonEvent("MOUSEENTER", x=e.xbutton.x, y=e.xbutton.y))
+            elif e_type == 8: # LeaveNotify
+                events.append(PIonEvent("MOUSELEAVE", x=e.xbutton.x, y=e.xbutton.y))
 
-        # --- Window crossing ---
-        elif e_type == 7: # EnterNotify
-            events.append(PIonEvent("MOUSEENTER", x=e.xbutton.x, y=e.xbutton.y))
-        elif e_type == 8: # LeaveNotify
-            events.append(PIonEvent("MOUSELEAVE", x=e.xbutton.x, y=e.xbutton.y))
+            # --- Focus ---
+            elif e_type == 9: # FocusIn
+                events.append(PIonEvent("FOCUS_GAINED"))
+            elif e_type == 10: # FocusOut
+                events.append(PIonEvent("FOCUS_LOST"))
 
-        # --- Focus ---
-        elif e_type == 9: # FocusIn
-            events.append(PIonEvent("FOCUS_GAINED"))
-        elif e_type == 10: # FocusOut
-            events.append(PIonEvent("FOCUS_LOST"))
+            # --- Expose / Redraw ---
+            elif e_type == 12: # Expose
+                events.append(PIonEvent("EXPOSE"))
 
-        # --- Expose / Redraw ---
-        elif e_type == 12: # Expose
-            events.append(PIonEvent("EXPOSE"))
+            # --- Visibility ---
+            elif e_type == 15: # VisibilityNotify
+                events.append(PIonEvent("REDRAW"))
 
-        # --- Visibility ---
-        elif e_type == 15: # VisibilityNotify
-            events.append(PIonEvent("REDRAW"))
+            # --- Structure / Resize / Move ---
+            elif e_type == 22: # ConfigureNotify
+                events.append(PIonEvent("RESIZE",
+                    x=e.xconfigure.x,
+                    y=e.xconfigure.y,
+                    width=e.xconfigure.width,
+                    height=e.xconfigure.height
+                ))
 
-        # --- Structure / Resize / Move ---
-        elif e_type == 22: # ConfigureNotify
-            events.append(PIonEvent("RESIZE",
-                x=e.xconfigure.x,
-                y=e.xconfigure.y,
-                width=e.xconfigure.width,
-                height=e.xconfigure.height
-            ))
+            # --- Map / Unmap / Destroy ---
+            elif e_type == 19: # MapNotify
+                events.append(PIonEvent("SHOW"))
+            elif e_type == 18: # UnmapNotify
+                events.append(PIonEvent("HIDE"))
+            elif e_type == 17: # DestroyNotify
+                events.append(PIonEvent("DESTROY"))
 
-        # --- Map / Unmap / Destroy ---
-        elif e_type == 19: # MapNotify
-            events.append(PIonEvent("SHOW"))
-        elif e_type == 18: # UnmapNotify
-            events.append(PIonEvent("HIDE"))
-        elif e_type == 17: # DestroyNotify
-            events.append(PIonEvent("DESTROY"))
+            # --- Client / Close requests ---
+            elif e_type == 33: # ClientMessage (e.g., WM_DELETE_WINDOW)
+                events.append(PIonEvent("CLOSE"))
 
-        # --- Client / Close requests ---
-        elif e_type == 33: # ClientMessage (e.g., WM_DELETE_WINDOW)
-            events.append(PIonEvent("CLOSE"))
+            # --- Property changed (like window title, icon, etc.) ---
+            elif e_type == 28: # PropertyNotify
+                events.append(PIonEvent("PROPERTYCHANGE"))
 
-        # --- Property changed (like window title, icon, etc.) ---
-        elif e_type == 28: # PropertyNotify
-            events.append(PIonEvent("PROPERTYCHANGE"))
+            # --- MappingNotify (keyboard layout changes) ---
+            elif e_type == 34:
+                events.append(PIonEvent("INPUTLANGCHANGE"))
 
-        # --- MappingNotify (keyboard layout changes) ---
-        elif e_type == 34:
-            events.append(PIonEvent("INPUTLANGCHANGE"))
-
-        else:
-            events.append(PIonEvent("UNKNOWN", raw_type=e_type))
+            else:
+                events.append(PIonEvent("UNKNOWN", raw_type=e_type))
+    except Exception as e:
+        print("X11 Poll Error:", e)
     return events
 
 def is_window_alive(window_tuple) -> bool:
     display, window = window_tuple
-    attrs = ctypes.c_ulong()
+    attrs = XWindowAttributes()
     status = libX11.XGetWindowAttributes(display, window, ctypes.byref(attrs))
     return status != 0
 
@@ -409,6 +437,13 @@ def get_gpu(window_tuple, api:Optional[str]=None, driver:Optional[BaseGPUD]=None
     gpu = GPU_API(api, driver)
     return gpu
 
+def _x11_attach_context(display, window, ctx: PIonContext, driver: BaseGPUD):
+    if ctx.api_name.lower() == "opengl":
+        glx = ctx.native_handle
+        driver.glXMakeCurrent(display, glx["window"], glx["glx_context"])
+
 def attach_gpu(window_tuple, gpu:GPU_API) -> None:
     display, window = window_tuple
-    gpu.driver.init(display, window)
+    gpu.driver.init(display, window, create_and_attach_ctx=False)
+    ctx = gpu.driver.create_context(display, window)
+    _x11_attach_context(display, window, ctx, gpu.driver)

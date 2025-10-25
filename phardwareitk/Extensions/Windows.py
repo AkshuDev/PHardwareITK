@@ -102,6 +102,8 @@ WM_SYNCPAINT = 136
 # Windows Core Messages
 WM_DESTROY = 2
 WM_CLOSE = 16
+# Windows Messages
+WM_LBUTTONDOWN = 0x0201
 
 # winuser.h -> PeekMessage Constants Part-1
 PM_NOREMOVE = 0x0000

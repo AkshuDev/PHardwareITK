@@ -86,7 +86,7 @@ class GPU_API:
         if driver is None:
             for api in self.available_api:
                 if api.lower() == "opengl":
-                    from phardwareitk.GPU._glx_driver import GLXDriver as _driver
+                    from phardwareitk.GPU._gl_driver import GLDriver as _driver
                     self.driver = _driver()
                     if not api == self.api:
                         self.api = api
@@ -160,6 +160,13 @@ class GPU_API:
         elif SYSTEM == "darwin":
             return try_load_library(["/System/Library/Frameworks/OpenGLES.framework/OpenGLES"]) is not None
         return False
+
+class PIonContext:
+    def __init__(self, api_name: str, native_handle: object, lib_path: str, metadata: dict = None):
+        self.api_name = api_name # e.g., "OpenGL", "Vulkan", "DirectX", "Metal"
+        self.native_handle = native_handle # platform-specific (X11, HWND, Android Surface)
+        self.lib_path = lib_path # path to the lib
+        self.metadata = metadata or {} # optional: version, extensions, etc.
 
 class PheonixIon:
     def __init__(self):

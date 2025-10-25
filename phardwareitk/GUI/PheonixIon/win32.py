@@ -7,7 +7,9 @@ kernel32 = ctypes.windll.kernel32
 gdi32 = ctypes.windll.gdi32
 
 from phardwareitk.GUI.PheonixIon.types import *
+from phardwareitk.GUI.pheonix_ion import GPU_API, PIonContext
 from phardwareitk.Extensions.Windows import *
+from phardwareitk.GPU._base import BaseGPUD
 
 user32.DefWindowProcW.argtypes = [HWND, UINT, WPARAM, LPARAM]
 user32.DefWindowProcW.restype  = LRESULT
@@ -76,8 +78,11 @@ def _wnd_proc(hwnd, msg, wparam, lparam):
         user32.PostQuitMessage(0)
         return 0
     elif msg == WM_CLOSE:
-        _windows_events.append(PIonEvent("CLOSE"))
+        _windows_events.append(PIonEvent("CLOSE", destroyed=True))
         user32.DestroyWindow(hwnd)
+        return 0
+    elif msg == WM_LBUTTONDOWN:
+        _windows_events.append(PIonEvent("LEFT_DOWN"))
         return 0
     return user32.DefWindowProcW(hwnd, msg, wparam, lparam)
 
@@ -138,14 +143,11 @@ def hide_window(hwnd: HWND) -> None:
     user32.ShowWindow(hwnd, 0)
     user32.UpdateWindow(hwnd)
 
-
 def set_window_title(hwnd: HWND, title: str) -> None:
     user32.SetWindowTextW(hwnd, title)
 
-
 def destroy_window(hwnd: HWND) -> None:
     user32.DestroyWindow(hwnd)
-
 
 def poll_events(hwnd: HWND):
     msg = MSG()
@@ -160,3 +162,16 @@ def poll_events(hwnd: HWND):
 
 def is_window_alive(hwnd: HWND) -> bool:
     return user32.IsWindow(hwnd) != 0
+
+def get_gpu(hwnd: HWND, api: Optional[str], driver: Optional[BaseGPUD]) -> GPU_API:
+    global hdc
+
+    if not hwnd:
+        raise RuntimeError("Cannot create context for a invalid window!")
+
+    gpu = GPU_API(api, driver)
+    gpu.driver.init(None, None, create_and_attach_ctx=False)
+    return gpu
+
+def attach_gpu(hwnd: HWND, gpu: GPU_API) -> PIonContext:
+    return gpu.driver.create_context(None, hwnd)
