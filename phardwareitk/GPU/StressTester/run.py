@@ -7,6 +7,7 @@ if not baseDir in sys.path:
     sys.path.append(baseDir)
 
 from GPU import *
+set_gpu_type()
 from Extensions import *
 from CLI.cliToolKit import *
 

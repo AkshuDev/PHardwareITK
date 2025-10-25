@@ -7,6 +7,7 @@ import ctypes
 
 from typing import *
 
+from phardwareitk.GPU._base import BaseGPUD
 from phardwareitk.GUI.PheonixIon.types import *
 
 class NoCompatibleGraphicsAPIFound(Exception):
@@ -63,12 +64,38 @@ class PIonWindow:
             else:
                 raise ValueError("Backend must be a string or PIenum instance")
 
-class GPUContext:
-    def __init__(self, window, api:str=None) -> None:
-        self.window = window
-        self.api = api or self._detect_best_api()
+class GPU_API:
+    """Pheonix Ion GPU API, use the driver attribute to access functions like -
+    ```python
+        mygpu = GPU_API() # This is a simplification, the PheonixIon Class will return the GPU_API initialized.
+        # Initialize
+        mygpu.driver.init(mydisplay, mywin)
+        # Clear screen
+        mygpu.driver.clear(255, 0, 0, 255) # rgba
+        # Destroy
+        mygpu.driver.shutdown()
+    ```
+    """
+    def __init__(self, api:str=None, driver:Any=None) -> None:
+        self.api = api if api is not None else self._detect_best_api()
+        self.available_api = self._get_available_apis()
         self.context_handle = None
-        self.init_context()
+        from phardwareitk.GPU._base import BaseGPUD
+        self.driver: BaseGPUD = None
+
+        if driver is None:
+            for api in self.available_api:
+                if api.lower() == "opengl":
+                    from phardwareitk.GPU._glx_driver import GLXDriver as _driver
+                    self.driver = _driver()
+                    if not api == self.api:
+                        self.api = api
+                    break
+
+            else:
+                raise NoCompatibleGraphicsAPIFound(f"no {self.available_api} graphics drivers found in phardwareitk, try implementing your own?")
+        else:
+            self.driver = driver
 
     def _detect_best_api(self) -> str:
         if self._is_vulkan_available():
@@ -83,6 +110,20 @@ class GPUContext:
             return "OpenGL ES"
         else:
             raise NoCompatibleGraphicsAPIFound("No compatible graphics API found on this system.")
+
+    def _get_available_apis(self) -> str:
+        avail = []
+        if self._is_vulkan_available():
+            avail.append("Vulkan")
+        if self._opengl_available():
+            avail.append("OpenGL")
+        if self._is_directx_available():
+            avail.append("DirectX")
+        if self._is_metal_available():
+            avail.append("Metal")
+        if self._is_opengl_es_available():
+            avail.append("OpenGL ES")
+        return avail
 
     def _is_vulkan_available(self) -> bool:
         if SYSTEM == "windows":
@@ -119,40 +160,6 @@ class GPUContext:
         elif SYSTEM == "darwin":
             return try_load_library(["/System/Library/Frameworks/OpenGLES.framework/OpenGLES"]) is not None
         return False
-
-    def _init_vulkan(self):
-        # Placeholder for Vulkan context initialization
-        self.context_handle = "VulkanContextHandle"
-
-    def _init_opengl(self):
-        # Placeholder for OpenGL context initialization
-        self.context_handle = "OpenGLContextHandle"
-
-    def _init_directx(self):
-        # Placeholder for DirectX context initialization
-        self.context_handle = "DirectXContextHandle"
-
-    def _init_metal(self):
-        # Placeholder for Metal context initialization
-        self.context_handle = "MetalContextHandle"
-
-    def _init_opengl_es(self):
-        # Placeholder for OpenGL ES context initialization
-        self.context_handle = "OpenGLESContextHandle"
-
-    def init_context(self):
-        if self.api == "Vulkan":
-            self._init_vulkan()
-        elif self.api == "OpenGL":
-            self._init_opengl()
-        elif self.api == "DirectX":
-            self._init_directx()
-        elif self.api == "Metal":
-            self._init_metal()
-        elif self.api == "OpenGL ES":
-            self._init_opengl_es()
-        else:
-            raise NoCompatibleGraphicsAPIFound(f"Unsupported graphics API: {self.api}")
 
 class PheonixIon:
     def __init__(self):
@@ -220,11 +227,14 @@ class PheonixIon:
 
         return win
 
-    def poll_events(self, win:Union[int, PIonWindow]):
+    def poll_events(self, win:Union[int, PIonWindow]) -> list:
         """Poll events for the created window.
         
         Parameters:
-            win (int | PIonWindow): The window index or the PIonWindow class instance"""
+            win (int | PIonWindow): The window index or the PIonWindow class instance
+            
+        Returns:
+            list: A List of PIonEvent from PheonixIon.types"""
         handle = self.get_native_handle(win)
 
         if not handle:
@@ -307,9 +317,23 @@ class PheonixIon:
             if throw_err: raise ValueError("Unknown type provided for parameter 'win', supported types are - int or PIonWindow")
             return None
 
-    def get_native_handle(self, win:Union[int, PIonWindow]):
+    def get_native_handle(self, win:Union[int, PIonWindow]) -> Any:
         """Return OS-specific window handle (HWND on Win, X11 tuple, NSWindow on Mac)."""
         handle = self.get_window(win)
         if not handle: return None
 
         return handle.handle
+    
+    def get_gpu(self, win:Union[int, PIonWindow], api:Optional[str]=None, driver:Optional[BaseGPUD]=None) -> Optional[GPU_API]:
+        """Returns the GPU context in form of GPU_API class"""
+        window = self.get_native_handle(win)
+        if window:
+            return self.pionbackend.get_gpu(window, api, driver)
+        return None
+    
+    def attach_gpu(self, win:Union[int, PIonWindow], gpu:GPU_API) -> None:
+        window = self.get_native_handle(win)
+        if window:
+            return self.pionbackend.attach_gpu(window, gpu)
+        return None
+    

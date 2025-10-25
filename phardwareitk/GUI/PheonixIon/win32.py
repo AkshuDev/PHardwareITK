@@ -72,15 +72,16 @@ class PIWin32Flags:
 def _wnd_proc(hwnd, msg, wparam, lparam):
     global _windows_events
     if msg == WM_DESTROY:
-        _windows_events.append({"type": "QUIT"})
+        _windows_events.append(PIonEvent("QUIT"))
         user32.PostQuitMessage(0)
         return 0
     elif msg == WM_CLOSE:
-        _windows_events.append({"type": "CLOSE"})
+        _windows_events.append(PIonEvent("CLOSE"))
         user32.DestroyWindow(hwnd)
         return 0
     return user32.DefWindowProcW(hwnd, msg, wparam, lparam)
 
+_wnd_proc_callback = WNDPROC(_wnd_proc)
 
 def create_window(
     title: str = "Pheonix Ion",
@@ -95,7 +96,7 @@ def create_window(
     # Register class
     wndclass = WNDCLASS()
     wndclass.style = CS_HREDRAW | CS_VREDRAW
-    wndclass.lpfnWndProc = WNDPROC(_wnd_proc)
+    wndclass.lpfnWndProc = _wnd_proc_callback
     wndclass.cbClsExtra = 0
     wndclass.cbWndExtra = 0
     wndclass.hInstance = hInstance

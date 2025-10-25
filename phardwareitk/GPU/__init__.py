@@ -60,13 +60,16 @@ def get_gpu_type():
 
     return "No compatible GPU detected"
 
-# Import the appropriate module based on the GPU type
-gpu_type = get_gpu_type()
-if gpu_type == "NVIDIA":
-    importlib.import_module("GPU.NVIDIA")
-elif gpu_type == "Intel UHD":
-    importlib.import_module("GPU.IntelUHD")
-elif gpu_type == "AMD":
-    importlib.import_module("GPU.AMD")
-else:
-    print("Using CPU or unsupported GPU")
+gpu_type = None
+
+def set_gpu_type():
+    # Import the appropriate module based on the GPU type
+    gpu_type = get_gpu_type()
+    if gpu_type == "NVIDIA":
+        importlib.import_module("GPU.NVIDIA")
+    elif gpu_type == "Intel UHD":
+        importlib.import_module("GPU.IntelUHD")
+    elif gpu_type == "AMD":
+        importlib.import_module("GPU.AMD")
+    else:
+        print("Using CPU or unsupported GPU")

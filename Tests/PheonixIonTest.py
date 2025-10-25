@@ -11,16 +11,31 @@ from phardwareitk.GUI.pheonix_ion import *
 print("Creating Ion...")
 ionhandler = PheonixIon()
 print("Creating Window...")
-ionhandler.create_window()
+win = ionhandler.create_window()
+# print("Attaching GPU Context")
+# ctx = ionhandler.get_gpu(win)
+# ionhandler.attach_gpu(win, ctx)
+print("Handle: ", ionhandler.get_native_handle(win))
+print("Handles: ", ionhandler.windows)
 running = True
-i = 0
+ionhandler.show_window(win)
 
 print("Polling...")
+r = 0
+g = 0
+b = 0
+a = 255
 while running:
-    event = ionhandler.poll_events(0)
-    if i == 10000000 :
+    event: list[PIonEvent] = ionhandler.poll_events(win)
+    if len(event) == 0: continue
+    if event[0].type == PIonEvent_Types.LEFT_DOWN:
+        ctx.driver.clear(r, g, b, a)
+        r += 10
+        g += 5
+        b += 2
+    elif event[0].type == PIonEvent_Types.DESTROY:
+        ionhandler.destroy_window(win)
         running = False
-    i += 1
 
 print("Destroying Window...")
 ionhandler.destroy_window(0)
