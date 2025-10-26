@@ -73,17 +73,104 @@ class PIWin32Flags:
 
 def _wnd_proc(hwnd, msg, wparam, lparam):
     global _windows_events
-    if msg == WM_DESTROY:
+    # --- Window lifecycle ---
+    if msg == WM_CREATE:
+        _windows_events.append(PIonEvent("CREATE"))
+        return 0
+    elif msg == WM_DESTROY:
         _windows_events.append(PIonEvent("QUIT"))
         user32.PostQuitMessage(0)
         return 0
     elif msg == WM_CLOSE:
-        _windows_events.append(PIonEvent("CLOSE", destroyed=True))
-        user32.DestroyWindow(hwnd)
+        _windows_events.append(PIonEvent("CLOSE", destroyed=False))
+        return 0
+    elif msg == WM_SHOWWINDOW:
+        if wparam:  # TRUE means shown
+            _windows_events.append(PIonEvent("SHOW"))
+        else:
+            _windows_events.append(PIonEvent("HIDE"))
+        return 0
+    elif msg == WM_SIZE:
+        width = lparam & 0xFFFF
+        height = (lparam >> 16) & 0xFFFF
+        size_type = wparam
+        if size_type == 1:  # minimized
+            _windows_events.append(PIonEvent("MINIMIZE"))
+        elif size_type == 2:  # maximized
+            _windows_events.append(PIonEvent("MAXIMIZE"))
+        elif size_type == 0:  # restored
+            _windows_events.append(PIonEvent("RESTORE"))
+        _windows_events.append(PIonEvent("RESIZE", width=width, height=height))
+        return 0
+    elif msg == WM_MOVE:
+        x = lparam & 0xFFFF
+        y = (lparam >> 16) & 0xFFFF
+        _windows_events.append(PIonEvent("MOVE", x=x, y=y))
+        return 0
+
+    # --- Mouse ---
+    elif msg == WM_MOUSEMOVE:
+        x = lparam & 0xFFFF
+        y = (lparam >> 16) & 0xFFFF
+        _windows_events.append(PIonEvent("MOUSEMOVE", x=x, y=y))
         return 0
     elif msg == WM_LBUTTONDOWN:
         _windows_events.append(PIonEvent("LEFT_DOWN"))
         return 0
+    elif msg == WM_LBUTTONUP:
+        _windows_events.append(PIonEvent("LEFT_UP"))
+        return 0
+    elif msg == WM_RBUTTONDOWN:
+        _windows_events.append(PIonEvent("RIGHT_DOWN"))
+        return 0
+    elif msg == WM_RBUTTONUP:
+        _windows_events.append(PIonEvent("RIGHT_UP"))
+        return 0
+    elif msg == WM_MBUTTONDOWN:
+        _windows_events.append(PIonEvent("MIDDLE_DOWN"))
+        return 0
+    elif msg == WM_MBUTTONUP:
+        _windows_events.append(PIonEvent("MIDDLE_UP"))
+        return 0
+    elif msg == WM_MOUSEWHEEL:
+        delta = ctypes.c_short((wparam >> 16) & 0xFFFF).value
+        _windows_events.append(PIonEvent("SCROLL", delta=delta))
+        return 0
+    elif msg == WM_MOUSELEAVE:
+        _windows_events.append(PIonEvent("MOUSELEAVE"))
+        return 0
+    elif msg == WM_MOUSEHOVER:
+        _windows_events.append(PIonEvent("MOUSEENTER"))
+        return 0
+
+    # --- Keyboard ---
+    elif msg == WM_KEYDOWN:
+        _windows_events.append(PIonEvent("KEYDOWN", keycode=wparam))
+        return 0
+    elif msg == WM_KEYUP:
+        _windows_events.append(PIonEvent("KEYUP", keycode=wparam))
+        return 0
+    elif msg == WM_CHAR:
+        _windows_events.append(PIonEvent("KEYPRESS", char=chr(wparam)))
+        return 0
+    elif msg == WM_IME_COMPOSITION:
+        _windows_events.append(PIonEvent("IME_STARTCOMPOSITION"))
+        return 0
+    elif msg == WM_IME_ENDCOMPOSITION:
+        _windows_events.append(PIonEvent("IME_ENDCOMPOSITION"))
+        return 0
+
+    # --- Other / system ---
+    elif msg == WM_DISPLAYCHANGE:
+        _windows_events.append(PIonEvent("DISPLAYCHANGE"))
+        return 0
+    elif msg == WM_POWERBROADCAST:
+        _windows_events.append(PIonEvent("POWERBROADCAST"))
+        return 0
+    elif msg == WM_TIMER:
+        _windows_events.append(PIonEvent("TIMER", timer_id=wparam))
+        return 0
+
     return user32.DefWindowProcW(hwnd, msg, wparam, lparam)
 
 _wnd_proc_callback = WNDPROC(_wnd_proc)
@@ -100,7 +187,7 @@ def create_window(
 
     # Register class
     wndclass = WNDCLASS()
-    wndclass.style = CS_HREDRAW | CS_VREDRAW
+    wndclass.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC
     wndclass.lpfnWndProc = _wnd_proc_callback
     wndclass.cbClsExtra = 0
     wndclass.cbWndExtra = 0
@@ -138,7 +225,6 @@ def show_window(hwnd: HWND) -> None:
     user32.ShowWindow(hwnd, 1)
     user32.UpdateWindow(hwnd)
 
-
 def hide_window(hwnd: HWND) -> None:
     user32.ShowWindow(hwnd, 0)
     user32.UpdateWindow(hwnd)
@@ -164,13 +250,11 @@ def is_window_alive(hwnd: HWND) -> bool:
     return user32.IsWindow(hwnd) != 0
 
 def get_gpu(hwnd: HWND, api: Optional[str], driver: Optional[BaseGPUD]) -> GPU_API:
-    global hdc
-
     if not hwnd:
         raise RuntimeError("Cannot create context for a invalid window!")
 
     gpu = GPU_API(api, driver)
-    gpu.driver.init(None, None, create_and_attach_ctx=False)
+    gpu.driver.init(None, hwnd, create_and_attach_ctx=False)
     return gpu
 
 def attach_gpu(hwnd: HWND, gpu: GPU_API) -> PIonContext:

@@ -169,6 +169,7 @@ class PIonContext:
         self.metadata = metadata or {} # optional: version, extensions, etc.
 
 class PheonixIon:
+    """The Main Pheonix Ion Multi-Window System, using one instance a user can create 1, 2, 3, ..., 50+ windows if they wanted."""
     def __init__(self):
         self.system:str = SYSTEM
         self.windows:list[PIonWindow] = []

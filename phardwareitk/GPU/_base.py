@@ -29,3 +29,6 @@ class BaseGPUD:
     
     def destroy_context(self):
         """Destroys the created context"""
+
+    def viewport(self, w: int=800, h: int=600):
+        """Changes/Makes the viewport"""

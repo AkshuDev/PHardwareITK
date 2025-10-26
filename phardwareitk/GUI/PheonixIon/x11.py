@@ -262,6 +262,12 @@ X_EVENT_MASK = (
     X_EVENT_MASKS["COLORMAPCHANGE"]
 )
 
+CWBackPixel = 1 << 0
+CWBorderPixel = 1 << 3
+CWEventMask  = 1 << 11
+
+VALUEMASK = CWBackPixel | CWBorderPixel | CWEventMask
+
 def _get_display():
     global _display
     if not _display:
@@ -287,6 +293,8 @@ def create_window(title: str="Pheonix Ion", width:int=800, height:int=600, flags
 
     screen = libX11.XDefaultScreen(display)
     root = libX11.XRootWindow(display, screen)
+    visual = libX11.XDefaultVisual(display, screen)
+    depth = libX11.XDefaultDepth(display, screen)
 
     black = libX11.XBlackPixel(display, screen)
     white = libX11.XWhitePixel(display, screen)
@@ -294,14 +302,19 @@ def create_window(title: str="Pheonix Ion", width:int=800, height:int=600, flags
     if not flags:
         flags = PIX11Flags(100, 100, width, height, 1, black, white)
 
-    window = libX11.XCreateSimpleWindow(
+    attrs = XSetWindowAttributes()
+
+    window = libX11.XCreateWindow(
         display,
         root,
         flags.x, flags.y,
         flags.width, flags.height,
         flags.border,
-        flags.border_color,
-        flags.background
+        depth,
+        0,
+        visual,
+        VALUEMASK,
+        ctypes.byref(attrs)
     )
 
     if not window:
@@ -406,11 +419,11 @@ def poll_events(window_tuple):
             elif e_type == 18: # UnmapNotify
                 events.append(PIonEvent("HIDE"))
             elif e_type == 17: # DestroyNotify
-                events.append(PIonEvent("DESTROY"))
+                events.append(PIonEvent("DESTROY", destroyed=False))
 
             # --- Client / Close requests ---
             elif e_type == 33: # ClientMessage (e.g., WM_DELETE_WINDOW)
-                events.append(PIonEvent("CLOSE"))
+                events.append(PIonEvent("CLOSE", destroyed=False))
 
             # --- Property changed (like window title, icon, etc.) ---
             elif e_type == 28: # PropertyNotify

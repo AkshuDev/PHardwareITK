@@ -11,14 +11,17 @@ from phardwareitk.GUI.pheonix_ion import *
 print("Creating Ion...")
 ionhandler = PheonixIon()
 print("Creating Window...")
-win = ionhandler.create_window()
+win = ionhandler.create_window("Ion", 800, 600)
 print("Attaching GPU Context")
 ctx = ionhandler.get_gpu(win)
-ionhandler.attach_gpu(win, ctx)
+
 print("Handle: ", ionhandler.get_native_handle(win))
 print("Handles: ", ionhandler.windows)
 running = True
 ionhandler.show_window(win)
+
+ionhandler.attach_gpu(win, ctx)
+ctx.driver.viewport(800, 600)
 
 print("Polling...")
 r = 0
@@ -28,15 +31,23 @@ a = 255
 while running:
     event: list[PIonEvent] = ionhandler.poll_events(win)
     if len(event) == 0: continue
-    if event[0].type == PIonEvent_Types["LEFT_DOWN"]:
-        ctx.driver.clear(r, g, b, a)
-        r += 10
-        g += 5
-        b += 2
-    elif event[0].type == PIonEvent_Types["DESTROY"]:
-        ionhandler.destroy_window(win)
-        running = False
+    for e in event:
+        if e.type == PIonEvent_Types["LEFT_DOWN"]:
+            ctx.driver.clear(r, g, b, a)
+            ctx.driver.swap()
+            if r < 245:
+                r += 10
+            if g < 250:
+                g += 5
+            if b < 253:
+                b += 2
+        elif e.type == PIonEvent_Types["DESTROY"]:
+            ctx.driver.destroy_context()
+            ionhandler.destroy_window(win)
+        elif e.type == PIonEvent_Types["CLOSE"]:
+            ctx.driver.destroy_context()
+            ionhandler.destroy_window(win)
+        elif e.type == PIonEvent_Types["QUIT"]:
+            running = False
 
-print("Destroying Window...")
-ionhandler.destroy_window(0)
 print("Done!")

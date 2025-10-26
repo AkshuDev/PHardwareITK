@@ -52,7 +52,7 @@ class GLDriver(BaseGPUD):
                 self.lib_path = "libGL.so"
                 self.platform = "linux"
             elif self.platform == "windows":
-                self.libGL = cdll.LoadLibrary("opengl32.dll")
+                self.libGL = ctypes.windll.opengl32
                 self.lib_path = "opengl32.dll"
             elif self.platform == "darwin":
                 self.libGL = cdll.LoadLibrary("/System/Library/Frameworks/OpenGL.framework/OpenGL")
@@ -92,6 +92,9 @@ class GLDriver(BaseGPUD):
                 return self.create_context(display, window)
                 
         elif self.platform == "windows":
+            if not window:
+                raise Exception("Provided Window's HWND is invalid, are you trying to draw on desktop? if yes, override this function!")
+
             self.window = window # display is useless
 
             self.gdi32 = ctypes.windll.gdi32
@@ -105,16 +108,25 @@ class GLDriver(BaseGPUD):
             if not self.hdc:
                 self.hdc = self.user32.GetDC(window)
 
+            if not self.hdc:
+                raise RuntimeError(f"GetDC failed — invalid window handle: {window}")
+
             if create_and_attach_ctx:
                 return self.create_context(display, window)
 
     def clear(self, r: int, g: int, b: int, a: int):
-        r = r / 100
-        g = g / 100
-        b = b / 100
-        a = a / 100
+        r = r / 255.0
+        g = g / 255.0
+        b = b / 255.0
+        a = a / 255.0
+        current_ctx = self.libGL.wglGetCurrentContext()
+        if not current_ctx:
+            print("No current OpenGL context — wglMakeCurrent lost!")
+            return
         self.libGL.glClearColor(r, g, b, a)
+        self.check_gl_error("glClearColor")
         self.libGL.glClear(0x00004000) # GL_COLOR_BUFFER_BIT
+        self.check_gl_error("glClear")
     
     def swap(self):
         if self.platform == "linux":
@@ -173,6 +185,9 @@ class GLDriver(BaseGPUD):
                 }
             )
         elif self.platform == "windows":
+            if not self.hdc:
+                raise RuntimeError(f"GetDC failed — invalid window handle: {window}")
+
             class PIXELFORMATDESCRIPTOR(ctypes.Structure):
                 _fields_ = [
                     ("nSize", ctypes.c_ushort),
@@ -205,7 +220,7 @@ class GLDriver(BaseGPUD):
             pfd = PIXELFORMATDESCRIPTOR()
             pfd.nSize = ctypes.sizeof(PIXELFORMATDESCRIPTOR)
             pfd.nVersion = 1
-            pfd.dwFlags = 0x00000004 | 0x00000020  # PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL
+            pfd.dwFlags = 0x00000004 | 0x00000020 | 0x00000001  # PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER
             pfd.iPixelType = 0  # PFD_TYPE_RGBA
             pfd.cColorBits = 32
             pfd.cDepthBits = 24
@@ -217,7 +232,11 @@ class GLDriver(BaseGPUD):
 
             # Create OpenGL rendering context
             self.ctx = self.libGL.wglCreateContext(self.hdc)
-            self.libGL.wglMakeCurrent(self.hdc, self.ctx)
+            if not self.ctx:
+                raise RuntimeError("Failed to create WGL Context")
+            res = self.libGL.wglMakeCurrent(self.hdc, self.ctx)
+            if not res:
+                raise RuntimeError("Failed to make WGL context current")
 
             return PIonContext(
                 api_name="OpenGL",
@@ -229,3 +248,12 @@ class GLDriver(BaseGPUD):
                 lib_path="opengl32.dll",
                 metadata={"type": "WGL"}
             )
+    
+    def check_gl_error(self, func: str="Unknown"):
+        error = self.libGL.glGetError()
+        if error != 0:
+            print(f"OpenGL function [{func}] exited with an Error: {error}")
+
+    def viewport(self, w: int=800, h: int=600):
+        self.libGL.glViewport(0, 0, w, h)
+        self.check_gl_error("glViewport")
