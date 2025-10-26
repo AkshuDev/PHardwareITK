@@ -1,3 +1,6 @@
+# X11 YOU MADE MY LIFE A LIVING NIGHTMARE!!!!!!
+# TOTAL HOURS WASTED: 9
+
 import ctypes
 import os
 from ctypes import c_int, c_ulong, c_char_p, c_void_p, POINTER, c_long, c_uint, cdll
@@ -81,12 +84,26 @@ class XWindowAttributes(ctypes.Structure):
         ("screen", c_void_p),
     ]
 
+class XVisualInfo(ctypes.Structure):
+    _fields_ = [
+        ("visual", ctypes.c_void_p),
+        ("visualid", ctypes.c_ulong),
+        ("screen", ctypes.c_int),
+        ("depth", ctypes.c_int),
+        ("class_", ctypes.c_int),
+        ("red_mask", ctypes.c_ulong),
+        ("green_mask", ctypes.c_ulong),
+        ("blue_mask", ctypes.c_ulong),
+        ("colormap_size", ctypes.c_int),
+        ("bits_per_rgb", ctypes.c_int),
+    ]
+
 libX11.XCreateSimpleWindow.restype = ctypes.c_ulong
 libX11.XCreateWindow.argtypes = [
     Display, Window,
     c_int, c_int, c_uint, c_uint, c_uint,
-    c_int, c_int, c_void_p,
-    c_void_p, POINTER(XSetWindowAttributes)
+    c_int, c_uint, c_void_p,
+    c_ulong, POINTER(XSetWindowAttributes)
 ]
 libX11.XCreateWindow.restype = c_ulong
 libX11.XDefaultScreen.argtypes = [Display]
@@ -208,18 +225,15 @@ class XEvent(ctypes.Union):
         ("pad", ctypes.c_byte * 192),  # ensures correct size (192 bytes)
     ]
 
-class XVisualInfo(ctypes.Structure):
+class XErrorEvent(ctypes.Structure):
     _fields_ = [
-        ("visual", ctypes.c_void_p),
-        ("visualid", ctypes.c_ulong),
-        ("screen", ctypes.c_int),
-        ("depth", ctypes.c_int),
-        ("class_", ctypes.c_int),
-        ("red_mask", ctypes.c_ulong),
-        ("green_mask", ctypes.c_ulong),
-        ("blue_mask", ctypes.c_ulong),
-        ("colormap_size", ctypes.c_int),
-        ("bits_per_rgb", ctypes.c_int),
+        ("type", ctypes.c_int),
+        ("display", ctypes.c_void_p),
+        ("resourceid", ctypes.c_ulong),
+        ("serial", ctypes.c_ulong),
+        ("error_code", ctypes.c_ubyte),
+        ("request_code", ctypes.c_ubyte),
+        ("minor_code", ctypes.c_ubyte),
     ]
     
 libX11.XNextEvent.argtypes = [Display, POINTER(XEvent)]
@@ -227,6 +241,9 @@ libX11.XNextEvent.restype = c_int
 
 libX11.XCreateColormap.restype = c_ulong
 libX11.XCreateColormap.argtypes = [Display, Window, c_void_p, c_int]
+
+libX11.XMatchVisualInfo.argtypes = [Display, c_int, c_int, c_int, POINTER(XVisualInfo)]
+libX11.XMatchVisualInfo.restype = c_int
 
 X_EVENT_MASKS = {
     "KEYPRESS":          (1 << 0),
@@ -265,8 +282,24 @@ X_EVENT_MASK = (
 CWBackPixel = 1 << 0
 CWBorderPixel = 1 << 3
 CWEventMask  = 1 << 11
+CWColormap = 1 << 13
 
-VALUEMASK = CWBackPixel | CWBorderPixel | CWEventMask
+VALUEMASK = CWBackPixel | CWBorderPixel | CWEventMask | CWColormap
+
+INPUT_OUTPUT = 1
+
+@ctypes.CFUNCTYPE(ctypes.c_int, ctypes.POINTER(XErrorEvent))
+def x_error_handler(error_event_ptr):
+    e = error_event_ptr.contents
+    print("X Error caught!")
+    print(f"Error code: {e.error_code}")
+    print(f"Request code: {e.request_code}")
+    print(f"Minor code: {e.minor_code}")
+    print(f"Resource ID: {hex(e.resourceid)}")
+    print(f"Serial: {e.serial}")
+    return 0
+
+libX11.XSetErrorHandler(x_error_handler)
 
 def _get_display():
     global _display
@@ -293,8 +326,9 @@ def create_window(title: str="Pheonix Ion", width:int=800, height:int=600, flags
 
     screen = libX11.XDefaultScreen(display)
     root = libX11.XRootWindow(display, screen)
-    visual = libX11.XDefaultVisual(display, screen)
-    depth = libX11.XDefaultDepth(display, screen)
+
+    if not root:
+        raise RuntimeError("Invalid root window!")
 
     black = libX11.XBlackPixel(display, screen)
     white = libX11.XWhitePixel(display, screen)
@@ -302,7 +336,21 @@ def create_window(title: str="Pheonix Ion", width:int=800, height:int=600, flags
     if not flags:
         flags = PIX11Flags(100, 100, width, height, 1, black, white)
 
+    vinfo = XVisualInfo()
+    if not libX11.XMatchVisualInfo(display, screen, 24, 4, ctypes.byref(vinfo)):
+        raise RuntimeError("No suitable visual found!")
+
+    visual = ctypes.c_void_p(vinfo.visual)
+    depth = vinfo.depth
+
     attrs = XSetWindowAttributes()
+    ctypes.memset(ctypes.byref(attrs), 0, ctypes.sizeof(attrs))
+    attrs.background_pixel = flags.background
+    attrs.border_pixel = flags.border_color
+    attrs.event_mask = X_EVENT_MASK
+
+    colormap = libX11.XCreateColormap(display, root, visual, 0)
+    attrs.colormap = colormap
 
     window = libX11.XCreateWindow(
         display,
@@ -311,7 +359,7 @@ def create_window(title: str="Pheonix Ion", width:int=800, height:int=600, flags
         flags.width, flags.height,
         flags.border,
         depth,
-        0,
+        INPUT_OUTPUT,
         visual,
         VALUEMASK,
         ctypes.byref(attrs)

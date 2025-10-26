@@ -12,16 +12,17 @@ print("Creating Ion...")
 ionhandler = PheonixIon()
 print("Creating Window...")
 win = ionhandler.create_window("Ion", 800, 600)
-print("Attaching GPU Context")
-ctx = ionhandler.get_gpu(win)
+# print("Attaching GPU Context")
+# ctx = ionhandler.get_gpu(win)
+ctx = None
 
 print("Handle: ", ionhandler.get_native_handle(win))
 print("Handles: ", ionhandler.windows)
 running = True
 ionhandler.show_window(win)
 
-ionhandler.attach_gpu(win, ctx)
-ctx.driver.viewport(800, 600)
+# ionhandler.attach_gpu(win, ctx)
+# ctx.driver.viewport(800, 600)
 
 print("Polling...")
 r = 0
