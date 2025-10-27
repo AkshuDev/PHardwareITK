@@ -2,8 +2,8 @@ from typing import *
 import os
 import sys
 
-from phardwareitk.Extensions.C import *
-from phardwareitk.Extensions.C.stdlib import *
+from phardwareitk.Extensions import C
+from phardwareitk.Extensions.C import stdlib
 
 do_print_exception = False
 
@@ -24,51 +24,51 @@ SEEK_END = 2
 
 _IO_FILE = {
     "_IO_read_ptr": {
-        "type": pointer,
-        "ptr_type": char,
+        "type": C.pointer,
+        "ptr_type": C.char,
         "value": None
     },
     "_IO_read_end": {
-        "type": pointer,
-        "ptr_type": char,
+        "type": C.pointer,
+        "ptr_type": C.char,
         "value": None
     },
     "_IO_read_base": {
-        "type": pointer,
-        "ptr_type": char,
+        "type": C.pointer,
+        "ptr_type": C.char,
         "value": None
     },
     "_IO_write_base": {
-        "type": pointer,
-        "ptr_type": char,
+        "type": C.pointer,
+        "ptr_type": C.char,
         "value": None
     },
     "_IO_write_ptr": {
-        "type": pointer,
-        "ptr_type": char,
+        "type": C.pointer,
+        "ptr_type": C.char,
         "value": None
     },
     "_IO_write_end": {
-        "type": pointer,
-        "ptr_type": char,
+        "type": C.pointer,
+        "ptr_type": C.char,
         "value": None
     },
     "_IO_buf_base": {
-        "type": pointer,
-        "ptr_type": char,
+        "type": C.pointer,
+        "ptr_type": C.char,
         "value": None
     },
     "_IO_buf_end": {
-        "type": pointer,
-        "ptr_type": char,
+        "type": C.pointer,
+        "ptr_type": C.char,
         "value": None
     },
     "_fileno": {
-        "type": Int,
+        "type": C.Int,
         "value": None
     },
     "_blksize": {
-        "type": Int,
+        "type": C.Int,
         "value": None
     }
 }
@@ -87,14 +87,14 @@ _IO_FILE = {
 
 typedef struct _IO_FILE FILE;"""
 
-FILE = struct[_IO_FILE]
+FILE = C.struct[_IO_FILE]
 
-def _get_string(ptr: Union[pointer[char], str, None]) -> str:
+def _get_string(ptr: Union[C.pointer[C.char], str, None]) -> str:
     if ptr is None: return None
     if isinstance(ptr, str): return ptr
     return ptr.deref()
 
-def fopen(path:Union[pointer[char], str], mode:Union[pointer[char], str]) -> Union[pointer[FILE], Int]:
+def fopen(path:Union[C.pointer[C.char], str], mode:Union[C.pointer[C.char], str]) -> Union[C.pointer[FILE], C.Int]:
     """fopen - Open a file and return a FILE struct pointer
 
     Arguments:
@@ -104,9 +104,12 @@ def fopen(path:Union[pointer[char], str], mode:Union[pointer[char], str]) -> Uni
             Mode to open the file with (e.g. 'r', 'w', 'rb', ...)
 
     Returns: Pointer to FILE (_IO_FILE) struct or -1 on failure, -2 on file not found, -3 on permission error"""
-    push_frame()
+    C.push_frame()
     filename = _get_string(path)
     mode = _get_string(mode)
+
+    if "b" not in mode:
+        mode += "b"
 
     fd = None
 
@@ -114,10 +117,10 @@ def fopen(path:Union[pointer[char], str], mode:Union[pointer[char], str]) -> Uni
         fd = open(filename, mode)
     except PermissionError as pe:
         print_exception(pe)
-        return Int(-3)
+        return C.Int(-3)
 
     if fd is None:
-        return Int(-1)
+        return C.Int(-1)
 
     buffer_size = 4096 # Default
     statvfs = None
@@ -130,10 +133,10 @@ def fopen(path:Union[pointer[char], str], mode:Union[pointer[char], str]) -> Uni
         block_size = buffer_size
 
     # allocate memory for buffer
-    buf_base = malloc(size_t(buffer_size))
+    buf_base = stdlib.malloc(C.size_t(buffer_size))
 
     # Allocate FILE struct
-    file = struct(_IO_FILE)
+    file = C.struct(_IO_FILE)
     # set read values first
     file._IO_read_ptr = buf_base
     file._IO_read_end = buf_base # empty buffer at the start
@@ -150,12 +153,12 @@ def fopen(path:Union[pointer[char], str], mode:Union[pointer[char], str]) -> Uni
 
     # set file descriptor and block size
     try:
-        file._fileno = Int(fd.fileno())
+        file._fileno = C.Int(fd.fileno())
     except Exception as e:
         print_exception(e)
-        file._fileno = Int(-1)
+        file._fileno = C.Int(-1)
 
-    file._blksize = Int(block_size)
+    file._blksize = C.Int(block_size)
 
     # Store the file descriptor in a global dictionary to keep track of open files
     if "_open_files" not in globals():
@@ -163,10 +166,10 @@ def fopen(path:Union[pointer[char], str], mode:Union[pointer[char], str]) -> Uni
         _open_files = {}
     _open_files[fd.fileno()] = fd
 
-    pop_frame()
-    return pointer(file, struct) # Return
+    C.pop_frame()
+    return C.pointer(file, C.struct) # Return
 
-def fclose(file_:pointer[FILE]) -> Int:
+def fclose(file_:C.pointer[FILE]) -> C.Int:
     """fclose - Close a file and free its memory
 
     Arguments:
@@ -175,34 +178,34 @@ def fclose(file_:pointer[FILE]) -> Int:
 
     Returns: 0 on success, -1 on failure"""
     try:
-        push_frame()
+        C.push_frame()
         # Dereference the pointer
-        file: struct = struct.from_address(_IO_FILE, file_.ptr_addr)
+        file: C.struct = C.struct.from_address(_IO_FILE, file_.ptr_addr)
         fileno = file._fileno.value
 
         # Get the file descriptor from the global dictionary
         fd:TextIO = _open_files.get(fileno, None)
 
         if fd is None:
-            return -1
+            return C.Int(-1)
 
         # Close the file
         fd.close()
 
         # Free the buffer memory
-        free(file_) # Free the FILE struct memory
+        stdlib.free(file_) # Free the FILE struct memory
         del file
         del file_
 
         # Remove the file descriptor from the global dictionary
         del _open_files[fileno]
-        pop_frame()
-        return Int(0)
+        C.pop_frame()
+        return C.Int(0)
     except Exception as e:
         print_exception(e)
-        return Int(-1)
+        return C.Int(-1)
 
-def ftell(file: pointer[FILE]) -> size_t:
+def ftell(file: C.pointer[FILE]) -> C.size_t:
     """ftell - Get the current position in the file
 
     Arguments:
@@ -212,21 +215,21 @@ def ftell(file: pointer[FILE]) -> size_t:
     Returns: Current position in the file or -1 on failure"""
     try:
         # Dereference the pointer
-        push_frame()
-        file_struct: struct = struct.from_address(_IO_FILE, file.ptr_addr)
+        C.push_frame()
+        file_struct: C.struct = C.struct.from_address(_IO_FILE, file.ptr_addr)
         fd = _open_files.get(file_struct._fileno.value)
         if not fd:
             del file_struct
-            return -1
+            return C.Int(-1)
         out = fd.tell()
         del file_struct
-        pop_frame()
-        return size_t(out)
+        C.pop_frame()
+        return C.size_t(out)
     except Exception as e:
         print_exception(e)
-        return Int(-1)
+        return C.Int(-1)
 
-def fflush(file: pointer[FILE]) -> Int:
+def fflush(file: C.pointer[FILE]) -> C.Int:
     """fflush - Flush the output buffer of a file
 
     Arguments:
@@ -236,22 +239,22 @@ def fflush(file: pointer[FILE]) -> Int:
     Returns: 0 on success, -1 on failure"""
     try:
         # Dereference the pointer
-        file_struct: struct = struct.from_address(_IO_FILE, file.ptr_addr)
+        file_struct: C.struct = C.struct.from_address(_IO_FILE, file.ptr_addr)
         fd:TextIO = _open_files.get(file_struct._fileno.value, None)
 
         if fd is None:
-            return Int(-1)
+            return C.Int(-1)
 
         # Flush the file
         fd.flush()
         del file_struct
-        pop_frame()
-        return Int(0)
+        C.pop_frame()
+        return C.Int(0)
     except Exception as e:
         print_exception(e)
-        return Int(-1)
+        return C.Int(-1)
 
-def fseek(file: pointer[FILE], offset: Int, whence: Int) -> Int:
+def fseek(file: C.pointer[FILE], offset: C.Int, whence: C.Int) -> C.Int:
     """fseek - Set the file position indicator for the stream
 
     Arguments:
@@ -265,8 +268,8 @@ def fseek(file: pointer[FILE], offset: Int, whence: Int) -> Int:
     Returns: 0 on success, -1 on failure"""
     try:
         # Dereference the pointer
-        push_frame()
-        file_struct: struct = struct.from_address(_IO_FILE, file.ptr_addr)
+        C.push_frame()
+        file_struct: C.struct = C.struct.from_address(_IO_FILE, file.ptr_addr)
         fd:TextIO = _open_files.get(file_struct._fileno.value, None)
 
         if fd is None:
@@ -274,13 +277,13 @@ def fseek(file: pointer[FILE], offset: Int, whence: Int) -> Int:
 
         fd.seek(offset.value, whence.value)
         del file_struct
-        pop_frame()
-        return Int(0)
+        C.pop_frame()
+        return C.Int(0)
     except Exception as e:
         print_exception(e)
-        return Int(-1)
+        return C.Int(-1)
 
-def fread(dest: pointer[void], size: size_t, nmemb: size_t, file_ptr: pointer[FILE]) -> Int:
+def fread(dest: C.pointer[C.void], size: C.size_t, nmemb: C.size_t, file_ptr: C.pointer[FILE]) -> C.Int:
     """fread - Read data from a file
 
     Args:
@@ -296,40 +299,40 @@ def fread(dest: pointer[void], size: size_t, nmemb: size_t, file_ptr: pointer[FI
     nmemb = nmemb.value
 
     try:
-        push_frame()
+        C.push_frame()
         # Dereference the pointer
-        file: struct = struct.from_address(_IO_FILE, file_ptr.ptr_addr)
+        file: C.struct = C.struct.from_address(_IO_FILE, file_ptr.ptr_addr)
         total_bytes = size * nmemb
 
         fileno = file._fileno.value
         fd:TextIO = _open_files.get(fileno, None)
         if fd is None:
-            return Int(-1)
+            return C.Int(-1)
 
         data = fd.read(total_bytes)
         if not data:
-            return Int(0)
+            return C.Int(0)
 
         if isinstance(data, str): data = data.encode("utf-8")
 
         # Write data to the destination pointer
-        write_mem(data, size.value, dest.ptr_addr)
+        C.write_mem(data, size.value, dest.ptr_addr)
 
         # Update the read pointer
         buf_base = file._IO_buf_base
-        file._IO_read_ptr = pointer(buf_base.ptr_addr + len(data), char)
-        file._IO_read_end = pointer(buf_base.ptr_addr + total_bytes, char)
+        file._IO_read_ptr = C.pointer(buf_base.ptr_addr + len(data), C.char)
+        file._IO_read_end = C.pointer(buf_base.ptr_addr + total_bytes, C.char)
 
         del file
 
-        pop_frame()
-        return Int(len(data) // size)
+        C.pop_frame()
+        return C.Int(len(data) // size)
 
     except Exception as e:
         print_exception(e)
-        return Int(-1)
+        return C.Int(-1)
 
-def fwrite(src: Union[pointer[void], str, bytes], size: size_t, nmemb: size_t, file_ptr: pointer[FILE], chunk_size:Optional[Int]=None) -> Int:
+def fwrite(src: Union[C.pointer[C.void], str, bytes], size: C.size_t, nmemb: C.size_t, file_ptr: C.pointer[FILE], chunk_size:Optional[C.Int]=None) -> C.Int:
     """fwrite - Write data to a file
     
     Args:
@@ -347,46 +350,45 @@ def fwrite(src: Union[pointer[void], str, bytes], size: size_t, nmemb: size_t, f
     chunk_size = chunk_size.value if chunk_size else 4096
 
     try:
-        push_frame()
+        C.push_frame()
         # Dereference the pointer
-        file:struct = struct.from_address(_IO_FILE, file_ptr.ptr_addr)
+        file:C.struct = C.struct.from_address(_IO_FILE, file_ptr.ptr_addr)
         total_bytes = size * nmemb
 
         fileno = file._fileno.value
         fd:TextIO = _open_files.get(fileno, None)
         if fd is None:
-            return Int(-1)
+            return C.Int(-1)
         
         written = 0
         srcaddr = src.ptr_addr
         
         offset = 0
+        print("memaddr: ", srcaddr)
         for i in range(nmemb):
-            buf = read_mem(size, srcaddr + offset)
-            if not 'b' in fd.mode:
-                try:
-                    buf = buf.decode("utf-8")
-                except UnicodeDecodeError:
-                    return Int(-1)
+            buf = C.read_mem(size, srcaddr + offset)
 
             fd.write(buf)
             written += 1
             offset += size
+
+        fd.flush()
+        os.fsync(fd.fileno())
       
         # Update the write pointer
         buf_base = file._IO_buf_base
-        file._IO_write_ptr = pointer(buf_base.ptr_addr + written, char)
+        file._IO_write_ptr = C.pointer(buf_base.ptr_addr + written, C.char)
 
         del file
         
-        pop_frame()
-        return Int(written)
+        C.pop_frame()
+        return C.Int(written)
 
     except Exception as e:
         print_exception(e)
-        return Int(-1)
+        return C.Int(-1)
 
-def remove(filename: Union[pointer[char], str]) -> Int:
+def remove(filename: Union[C.pointer[C.char], str]) -> C.Int:
     """remove - Remove a file
 
     Arguments:
@@ -395,21 +397,21 @@ def remove(filename: Union[pointer[char], str]) -> Int:
 
     Returns: 0 on success, -1 on failure"""
     try:
-        push_frame()
+        C.push_frame()
         os.remove(_get_string(filename))
-        pop_frame()
-        return Int(0)
+        C.pop_frame()
+        return C.Int(0)
     except FileNotFoundError as fe:
         print_exception(fe)
-        return Int(-2)
+        return C.Int(-2)
     except PermissionError as pe:
         print_exception(pe)
-        return Int(-3)
+        return C.Int(-3)
     except Exception as e:
         print_exception(e)
-        return Int(-1)
+        return C.Int(-1)
 
-def rename(old_filename: Union[pointer[char], str], new_filename: Union[pointer[char], str]) -> Int:
+def rename(old_filename: Union[C.pointer[C.char], str], new_filename: Union[C.pointer[C.char], str]) -> C.Int:
     """rename - Rename a file
 
     Arguments:
@@ -420,17 +422,17 @@ def rename(old_filename: Union[pointer[char], str], new_filename: Union[pointer[
 
     Returns: 0 on success, -1 on failure"""
     try:
-        push_frame()
+        C.push_frame()
         os.rename(_get_string(old_filename), _get_string(new_filename))
-        pop_frame()
-        return Int(0)
+        C.pop_frame()
+        return C.Int(0)
     except FileNotFoundError as fe:
         print_exception(fe)
-        return Int(-2)
+        return C.Int(-2)
     except PermissionError as pe:
         print_exception(pe)
-        return Int(-3)
+        return C.Int(-3)
     except Exception as e:
         print_exception(e)
-        return Int(-1)
+        return C.Int(-1)
 

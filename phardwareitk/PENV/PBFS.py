@@ -9,21 +9,21 @@ MPATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 if not MPATH in sys.path:
     sys.path.append(MPATH)
 
-from Extensions.C import *
-from Extensions.C.stdlib import *
-from Extensions.C.stdio import *
-from Extensions.C.stdint import *
+from Extensions import C
+from Extensions.C import stdlib
+from Extensions.C import stdio
+from Extensions.C import stdint
 
 PBFS_HEADER = {
-    "Magic": {"type": Array, "array_type": Char, "array_len": 6, "value": None},
-    "Block_Size": {"type": Uint32_t, "value": None},
-    "Total_Blocks": {"type": Uint32_t, "value": None},
-    "Disk_Name": {"type": Array, "array_type": Char, "array_len": 24, "value": None},
-    "TimeStamp": {"type": Uint64_t, "value": None},
-    "Version": {"type": Uint32_t, "value": None},
-    "First_Boot_Timestamp": {"type": Uint64_t, "value": None},
-    "OS_BootMode": {"type": Uint16_t, "value": None},
-    "Entries": {"type": Uint32_t, "value": None},
+    "Magic": {"type": C.array, "array_type": C.char, "array_len": 6, "value": None},
+    "Block_Size": {"type": stdint.uint32_t, "value": None},
+    "Total_Blocks": {"type": stdint.uint32_t, "value": None},
+    "Disk_Name": {"type": C.array, "array_type": C.char, "array_len": 24, "value": None},
+    "TimeStamp": {"type": stdint.uint64_t, "value": None},
+    "Version": {"type": stdint.uint32_t, "value": None},
+    "First_Boot_Timestamp": {"type": stdint.uint64_t, "value": None},
+    "OS_BootMode": {"type": stdint.uint16_t, "value": None},
+    "Entries": {"type": stdint.uint32_t, "value": None},
 }
 
 """typedef struct {
@@ -40,10 +40,10 @@ PBFS_HEADER = {
 } __attribute__((packed)) PBFS_Header; // Total = 68 bytes"""
 
 PBFS_FILE_TABLE_ENTRY = {
-    "Name": {"type": Array, "array_type": Char, "array_len": 150, "value": None},
-    "File_Data_Offset": {"type": Uint64_t, "value": None},
-    "Permission_Table_Offset": {"type": Uint64_t, "value": None},
-    "Block_Span": {"type": Uint64_t, "value": None},
+    "Name": {"type": C.array, "array_type": C.char, "array_len": 150, "value": None},
+    "File_Data_Offset": {"type": stdint.uint64_t, "value": None},
+    "Permission_Table_Offset": {"type": stdint.uint64_t, "value": None},
+    "Block_Span": {"type": stdint.uint64_t, "value": None},
 }
 
 """typedef struct {
@@ -54,15 +54,15 @@ PBFS_FILE_TABLE_ENTRY = {
 } __attribute__((packed)) PBFS_FileTableEntry; // Total = 24 bytes"""
 
 PBFS_PERMISSION_TABLE_ENTRY = {
-    "Read": {"type": Uint16_t, "value": None},
-    "Write": {"type": Uint16_t, "value": None},
-    "Executable": {"type": Uint16_t, "value": None},
-    "Listable": {"type": Uint16_t, "value": None},
-    "Hidden": {"type": Uint16_t, "value": None},
-    "Full_Control": {"type": Uint16_t, "value": None},
-    "Delete": {"type": Uint16_t, "value": None},
-    "Special_Access": {"type": Uint16_t, "value": None},
-    "File_Tree_Offset": {"type": Uint32_t, "value": None},
+    "Read": {"type": stdint.uint16_t, "value": None},
+    "Write": {"type": stdint.uint16_t, "value": None},
+    "Executable": {"type": stdint.uint16_t, "value": None},
+    "Listable": {"type": stdint.uint16_t, "value": None},
+    "Hidden": {"type": stdint.uint16_t, "value": None},
+    "Full_Control": {"type": stdint.uint16_t, "value": None},
+    "Delete": {"type": stdint.uint16_t, "value": None},
+    "Special_Access": {"type": stdint.uint16_t, "value": None},
+    "File_Tree_Offset": {"type": stdint.uint32_t, "value": None},
 }
 
 """typedef struct {
@@ -78,7 +78,7 @@ PBFS_PERMISSION_TABLE_ENTRY = {
 } __attribute__((packed)) PBFS_PermissionTableEntry; // Total = 20 bytes"""
 
 PBFS_FILE_TREE_ENTRY = {
-    "Name": {"type": Array, "array_type": Char, "array_len": 20, "value": None}
+    "Name": {"type": C.array, "array_type": C.char, "array_len": 20, "value": None}
 }
 
 """typedef struct {
@@ -86,12 +86,12 @@ PBFS_FILE_TREE_ENTRY = {
 } __attribute__((packed)) PBFS_FileTreeEntry; // Total = 20 bytes"""
 
 PBFS_DAP = {
-    "size": {"type": Uint8_t, "value": None},
-    "reserved": {"type": Uint8_t, "value": None},
-    "sector_count": {"type": Uint16_t, "value": None},
-    "offset": {"type": Uint16_t, "value": None},
-    "segment": {"type": Uint16_t, "value": None},
-    "lba": {"type": Uint64_t, "value": None},
+    "size": {"type": stdint.uint8_t, "value": None},
+    "reserved": {"type": stdint.uint8_t, "value": None},
+    "sector_count": {"type": stdint.uint16_t, "value": None},
+    "offset": {"type": stdint.uint16_t, "value": None},
+    "segment": {"type": stdint.uint16_t, "value": None},
+    "lba": {"type": stdint.uint64_t, "value": None},
 }
 
 """typedef struct {
@@ -104,14 +104,14 @@ PBFS_DAP = {
 } __attribute__((packed)) PBFS_DAP;"""
 
 PBFS_PERMISSIONS = {
-    "Read": {"type": Uint16_t, "value": None},
-    "Write": {"type": Uint16_t, "value": None},
-    "Executable": {"type": Uint16_t, "value": None},
-    "Listable": {"type": Uint16_t, "value": None},
-    "Hidden": {"type": Uint16_t, "value": None},
-    "Full_Control": {"type": Uint16_t, "value": None},
-    "Delete": {"type": Uint16_t, "value": None},
-    "Special_Access": {"type": Uint16_t, "value": None},
+    "Read": {"type": stdint.uint16_t, "value": None},
+    "Write": {"type": stdint.uint16_t, "value": None},
+    "Executable": {"type": stdint.uint16_t, "value": None},
+    "Listable": {"type": stdint.uint16_t, "value": None},
+    "Hidden": {"type": stdint.uint16_t, "value": None},
+    "Full_Control": {"type": stdint.uint16_t, "value": None},
+    "Delete": {"type": stdint.uint16_t, "value": None},
+    "Special_Access": {"type": stdint.uint16_t, "value": None},
 }
 
 """typedef struct {
@@ -126,13 +126,13 @@ PBFS_PERMISSIONS = {
 } __attribute__((packed)) PBFS_Permissions; // Total = 16 bytes"""
 
 PBFS_LAYOUT = {
-    "Header_Start": {"type": Uint64_t, "value": None},
-    "Header_End": {"type": Uint64_t, "value": None},
-    "Header_BlockSpan": {"type": Uint64_t, "value": None},
-    "Bitmap_Start": {"type": Uint64_t, "value": None},
-    "Bitmap_BlockSpan": {"type": Uint64_t, "value": None},
-    "Bitmap_End": {"type": Uint64_t, "value": None},
-    "Data_Start": {"type": Uint64_t, "value": None},
+    "Header_Start": {"type": stdint.uint64_t, "value": None},
+    "Header_End": {"type": stdint.uint64_t, "value": None},
+    "Header_BlockSpan": {"type": stdint.uint64_t, "value": None},
+    "Bitmap_Start": {"type": stdint.uint64_t, "value": None},
+    "Bitmap_BlockSpan": {"type": stdint.uint64_t, "value": None},
+    "Bitmap_End": {"type": stdint.uint64_t, "value": None},
+    "Data_Start": {"type": stdint.uint64_t, "value": None},
 }
 
 """typedef struct {
@@ -146,14 +146,14 @@ PBFS_LAYOUT = {
 } __attribute__((packed)) PBFS_Layout;"""
 
 DRIVE_PARAMETERS = {
-    "size": {"type": Uint16_t, "value": None},
-    "flags": {"type": Uint16_t, "value": None},
-    "cylinders": {"type": Uint32_t, "value": None},
-    "heads": {"type": Uint32_t, "value": None},
-    "sectors_per_track": {"type": Uint32_t, "value": None},
-    "total_sectors": {"type": Uint64_t, "value": None},
-    "bytes_per_sector": {"type": Uint16_t, "value": None},
-    "reserved": {"type": Array[Uint8_t, 6], "value": None},
+    "size": {"type": stdint.uint16_t, "value": None},
+    "flags": {"type": stdint.uint16_t, "value": None},
+    "cylinders": {"type": stdint.uint32_t, "value": None},
+    "heads": {"type": stdint.uint32_t, "value": None},
+    "sectors_per_track": {"type": stdint.uint32_t, "value": None},
+    "total_sectors": {"type": stdint.uint64_t, "value": None},
+    "bytes_per_sector": {"type": stdint.uint16_t, "value": None},
+    "reserved": {"type": C.array, "array_type": stdint.uint8_t, "array_len": 6, "value": None},
 }
 
 """typedef struct {
@@ -168,8 +168,8 @@ DRIVE_PARAMETERS = {
 } __attribute__((packed)) DriveParameters;"""
 
 PBFS_FILE_LIST_ENTRY = {
-    "Name": {"type": Pointer, "ptr_type": Char, "value": None},
-    "lba": {"type": Uint64_t, "value": None},
+    "Name": {"type": C.pointer, "ptr_type": C.char, "value": None},
+    "lba": {"type": stdint.uint64_t, "value": None},
 }
 
 """typedef struct {
@@ -184,38 +184,38 @@ def round_up_to_block(size: int, block_size: int = 512) -> int:
 
 def validate_disk(path: str, block_size: int = 512) -> bool:
     """Validates the Drive"""
-    push_frame()
+    C.push_frame()
     if not os.path.exists(path):
         return False
 
-    drive: Pointer[FILE] = fopen(path, "rb")
-    fseek(drive, Int(0), Int(SEEK_END))
-    size = ftell(drive)
-    fseek(drive, Int(0), Int(SEEK_SET))
-    buffer_ = malloc(size_t(block_size))
-    buffer_.cast(Char)
-    fseek(drive, Int(block_size), Int(SEEK_SET))
-    fread(buffer_, size_t(block_size), size_t(1), drive)
-    err = struct.from_address(PBFS_HEADER, buffer_.ptr_addr)
+    drive: C.pointer[stdio.FILE] = stdio.fopen(path, "rb")
+    stdio.fseek(drive, C.Int(0), C.Int(stdio.SEEK_END))
+    size = stdio.ftell(drive)
+    stdio.fseek(drive, C.Int(0), C.Int(stdio.SEEK_SET))
+    buffer_ = stdlib.malloc(C.size_t(block_size))
+    buffer_.cast(C.Char)
+    stdio.fseek(drive, C.Int(block_size), C.Int(stdio.SEEK_SET))
+    stdio.fread(buffer_, C.size_t(block_size), C.size_t(1), drive)
+    err = C.struct.from_address(PBFS_HEADER, buffer_.ptr_addr)
     if err == -1:
         print("Incorrect data in file: Validation Failed!")
-        free(buffer_)
-        fclose(drive)
-        pop_frame()
+        stdlib.free(buffer_)
+        stdio.fclose(drive)
+        C.pop_frame()
         return False
 
     magic = err.Magic
-    magic_val = pointer(magic.address, char).deref()
+    magic_val = C.pointer(magic.address, C.char).deref()
     if not magic_val == b"PBFS\x00\x00":
         print("Signature doesn't Match! Validation failed!")
-        free(buffer_)
-        fclose(drive)
-        pop_frame()
+        stdlib.free(buffer_)
+        stdio.fclose(drive)
+        C.pop_frame()
         return False
 
-    free(buffer_)
-    fclose(drive)
-    pop_frame()
+    stdlib.free(buffer_)
+    stdio.fclose(drive)
+    C.pop_frame()
     return True
 
 def format_disk(
@@ -225,40 +225,42 @@ def format_disk(
     disk_name: bytes = b"SSD-PBFS-VIRTUAL",
 ) -> int:
     """Formates the Drive"""
-    reset_mem(memsize) # Always ensure clean slate
-    push_frame()
+    C.reset_mem(memsize) # Always ensure clean slate
+    C.push_frame()
     print("Formatting disk...")
-    file: Pointer[FILE] = fopen(path, "wb+")
+    file: C.pointer[stdio.FILE] = stdio.fopen(path, "wb+")
 
-    if isinstance(file, Int):
+    if isinstance(file, C.Int):
         print("Opening the file failed:", file)
         return -1
 
     try:
-        lba_buff = malloc(size_t(block_size))
+        lba_buff = stdlib.malloc(C.size_t(block_size))
         if not lba_buff: 
             print("Alloc failed!")
             return -1
         # Now we format it
         print("Formatting...")
-        write_mem(b"\x00" * block_size, block_size, lba_buff.ptr_addr)
-        fwrite(lba_buff, size_t(block_size), size_t(1), file)
+        C.write_mem(b"\x00" * block_size, block_size, lba_buff.ptr_addr)
+        stdio.fwrite(lba_buff, C.size_t(block_size), C.size_t(1), file)
 
         print("Writing PBFS Header...")
-        PBFS_Header = struct.from_address(PBFS_HEADER, lba_buff.ptr_addr)
+        PBFS_Header = C.struct.from_address(PBFS_HEADER, lba_buff.ptr_addr)
         PBFS_Header.Magic = b"PBFS\x00\x00"
-        PBFS_Header.Block_Size = Uint32_t(block_size)
-        PBFS_Header.Total_Blocks = Uint32_t(total_blocks)
+        PBFS_Header.Block_Size = stdint.uint32_t(block_size)
+        PBFS_Header.Total_Blocks = stdint.uint32_t(total_blocks)
         PBFS_Header.Disk_Name = disk_name
-        PBFS_Header.TimeStamp = Uint64_t(int(time.time()))
-        PBFS_Header.Version = Uint32_t(1)
-        PBFS_Header.Entries = Uint32_t(0)
-        PBFS_Header.First_Boot_Timestamp = Uint64_t(0)
-        PBFS_Header.OS_BootMode = Uint16_t(1)
+        PBFS_Header.TimeStamp = stdint.uint64_t(int(time.time()))
+        PBFS_Header.Version = stdint.uint32_t(1)
+        PBFS_Header.Entries = stdint.uint32_t(0)
+        PBFS_Header.First_Boot_Timestamp = stdint.uint64_t(0)
+        PBFS_Header.OS_BootMode = stdint.uint16_t(1)
+
+        print("lba addr: ", lba_buff.ptr_addr)
 
         print("Writing...")
-        fwrite(lba_buff, size_t(block_size), size_t(1), file)
-        write_mem(b"\x00" * block_size, block_size, lba_buff.ptr_addr)
+        stdio.fwrite(lba_buff, C.size_t(block_size), C.size_t(1), file)
+        C.write_mem(b"\x00" * block_size, block_size, lba_buff.ptr_addr)
         
         # Create bitmap
         print("Creating Bitmap")
@@ -277,25 +279,25 @@ def format_disk(
         bmap = make_bitmap(total_blocks, 3)
         space_needed = (total_blocks + 7) // 8
         
-        write_mem(bmap, space_needed, lba_buff.ptr_addr)
-        fwrite(lba_buff, size_t(block_size), size_t(space_needed), file)
+        C.write_mem(bmap, space_needed, lba_buff.ptr_addr)
+        stdio.fwrite(lba_buff, C.size_t(block_size), C.size_t(space_needed), file)
         
-        fwrite(b"\x00" * block_size, size_t(block_size), size_t(total_blocks - (1 + space_needed)), file)
+        stdio.fwrite(b"\x00" * block_size, C.size_t(block_size), C.size_t(total_blocks - (1 + space_needed)), file)
         
         print("Done formatting disk...")
-        fflush(file)
+        stdio.fflush(file)
     except Exception as e:
         print(f"Exception: {e}")
-        fclose(file)
-        free(lba_buff)
+        stdio.fclose(file)
+        stdlib.free(lba_buff)
         print("FAILED!")
-        pop_frame()
+        C.pop_frame()
         return -1
-    fclose(file)
-    free(lba_buff)
+    stdio.fclose(file)
+    stdlib.free(lba_buff)
 
     print("Finished!")
-    pop_frame()
+    C.pop_frame()
 
     return 0
 
@@ -304,308 +306,16 @@ def increase_memsize(size_: int):
     """Increase the default memory size for this file"""
     global memsize
     memsize = size_
-    reset_mem(size_)
+    C.reset_mem(size_)
 
 def initialize_pbfs(size_: int):
     global memsize
     memsize = size_
-    initialize(size_)
+    C.initialize(size_)
 
 
 class PBFS:
     """Python Block File System / Pheonix Block File System"""
 
     def __init__(self, drive: str, block_size: int=512, total_blocks: int=2048) -> None:
-        self.drive = drive
-        self.files = []
-        self.folders = []
-        
-        self.block_size = block_size
-        self.total_blocks = total_blocks
-        
-        self.layout = Struct(PBFS_LAYOUT)
-        self.layout.set("Header_Start", Uint64_t(block_size))
-        self.layout.set("Header_BlockSpan", Uint64_t(1))
-        self.layout.set("Header_End", Uint64_t(block_size * 2))
-        self.layout.set("Bitmap_Start", Uint64_t(block_size * 2))
-        
-        self.header = Struct(PBFS_HEADER)
-        
-        self.drive_file = fopen(make_string(self.drive), make_string("rb+"))
-        
-        self.read_header()
-        
-        # Initialize bitmap
-        self.bitmap = bytearray
-        self.load_bitmap()
-        self.list_files()
-        
-    def validate_header(self) -> bool:
-        """Validates the header"""
-        magic = self.header.access("Magic")
-        if read(magic, 6) == b"PBFS\x00\x00":
-            return True
-        return False
-        
-    def read_header(self) -> bool:
-        """Reads the header"""
-        fseek(self.drive_file, self.layout.access("Header_Start").value, SEEK_SET)
-        data = malloc(self.layout.access("Header_BlockSpan").value * self.block_size)
-        fread(data, self.layout.access("Header_BlockSpan").value * self.block_size, 1, self.drive_file)
-        try:
-            self.header.fill_b(read(data, self.layout.access("Header_BlockSpan").value * self.block_size))
-        except Exception as e:
-            print(f"Tried to read header but failed, Are you sure this is the right file system?: {read(data, self.layout.access("Header_BlockSpan").value * self.block_size)}\n\nException: {e}")
-        
-        if not self.validate_header():
-            return False
-        
-        self.block_size = self.header.access("Block_Size").value
-        self.total_blocks = self.header.access("Total_Blocks").value
-        
-        bm_blockspan = round_up_to_block(self.total_blocks, self.block_size) // self.block_size
-        bm_end = self.layout.access("Bitmap_Start").value + (bm_blockspan * self.block_size)
-        
-        self.layout.set("Bitmap_BlockSpan", Uint64_t(bm_blockspan))
-        self.layout.set("Bitmap_End", Uint64_t(bm_end))
-        self.layout.set("Data_Start", Uint64_t(bm_end + (2 * self.block_size)))
-
-    def is_block_free(self, block_index: int) -> bool:
-        """Checks if the specified block is free"""
-        byte_index = block_index // 8
-        bit_index = byte_index % 8
-        byte = self.bitmap[byte_index]
-        return not (byte & (1 << bit_index))
-    
-    def mark_blocks_used(self, start_block: int, count: int):
-        """Marks a block used"""
-        block = start_block
-        for i in range(count + 1):
-            block += i
-            byte_index = block // 8
-            bit_index = block % 8
-            self.bitmap[byte_index] |= (1 << bit_index)
-    
-    def mark_blocks_free(self, start_block: int, count: int):
-        """Marks a block free"""
-        block = start_block
-        for i in range(count + 1):
-            block += i
-            byte_index = block // 8
-            bit_index = block % 8
-            self.bitmap[byte_index] &= ~(1 << bit_index)
-
-    def get_free_blocks(self, span: int) -> int:
-        """Return starting block index of 'span' free blocks or -1 if none"""
-        free_count = 0
-        start_block = 0
-    
-        for block in range(self.total_blocks):
-            if self.is_block_free(block):
-                if free_count == 0:
-                    start_block = block
-                free_count += 1
-                if free_count == span:
-                    return start_block
-            else:
-                free_count = 0
-
-        return -1  # no free continuous range found
-
-    def write_file(self, content: bytes, path: str, reserved_size:int=0, permissions:tuple=(1, 1, 0, 1, 0, 0, 1, 0), files_with_access:list=["~"]) -> bool:
-        """Write a file to Drive
-
-        Parameters:
-            content (bytes): The content of the file
-            path (str): Path of the file
-            reserved_size (int): Extra space if needed to reserve. Defaults to 0
-
-        Returns:
-            bool: True if successful else False"""
-        
-        size = len(content) + reserved_size
-        extra_size = round_up_to_block(size, self.block_size)
-        path += "\x00\x00"
-        
-        if not size == extra_size:
-            content += b"\x00" * extra_size
-            size = extra_size
-            
-        block_span = size // self.block_size
-        addr = self.get_free_blocks(block_span + 1)
-        if addr == -1:
-            print("No Space Left on Device")
-            return False
-            
-        addr = addr * self.block_size
-        fseek(self.drive_file, addr + self.block_size, SEEK_SET)
-        data = malloc(size)
-        write(data, content, size, no_meta=True)
-        fwrite(data, size, 1, self.drive_file)
-        free(data)
-        tree = self.make_file_tree(files_with_access)
-        perm = self.make_permission_table(*permissions, addr + 44)
-        meta = self.make_meta_entry(path, addr + self.block_size, block_span, addr + 24, False)
-        
-        lba_buff = malloc(self.block_size)
-        meta.write_b(lba_buff)
-        perm.write_b(Pointer(Void, lba_buff.pointer_address + 24))
-        write(Pointer(Void, lba_buff.pointer_address + 44), tree, len(tree))
-        fseek(self.drive_file, addr, SEEK_SET)
-        fwrite(lba_buff, self.block_size, 1, self.drive_file)
-        free(lba_buff)
-        del meta
-        del perm
-        return True
-        
-    def list_files(self) -> dict:
-        """
-        Returns a hierarchical dict of files/folders and updates self.files/self.folders.
-        Example:
-        {
-            "folder1": {
-                "file1.txt": {...},
-                "subfolder": {
-                    "file2.txt": {...}
-                }
-            },
-            "file3.txt": {...}
-        }
-        """
-        self.files = []
-        self.folders = []
-    
-        def add_to_tree(tree: dict, path_parts: list, meta: Struct):
-            part = path_parts.pop(0)
-            if len(path_parts) == 0:
-                # leaf node = file
-                tree[part] = {"meta": meta}
-            else:
-                if part not in tree:
-                    tree[part] = {}
-                add_to_tree(tree[part], path_parts, meta)
-    
-        file_tree: dict = {}
-        # Loop over all blocks containing metadata
-        data_start = self.layout.access("Data_Start").value
-        for block in range(self.total_blocks):
-            if not self.is_block_free(block):
-                # Read the metadata block
-                offset = block * self.block_size
-                buf = malloc(self.block_size)
-                fseek(self.drive_file, offset, SEEK_SET)
-                fread(buf, self.block_size, 1, self.drive_file)
-                meta_block = Struct(PBFS_FILE_TABLE_ENTRY)
-                meta_block.fill_b(read(buf, self.block_size))
-    
-                # Only process valid entries
-                name_bytes = meta_block.access("Name")
-                path_str = read(name_bytes, 20).rstrip(b"\x00").decode("utf-8")
-                if not path_str:
-                    continue
-    
-                # Update self.files/self.folders
-                entry = {
-                    "path": path_str,
-                    "addr": meta_block.access("File_Data_Offset").value,
-                    "span": meta_block.access("Block_Span").value
-                }
-                self.files.append(entry)
-    
-                # Build hierarchical dict
-                path_parts = path_str.split("/")
-                add_to_tree(file_tree, path_parts, meta_block)
-
-        return file_tree
-        
-    def load_bitmap(self) -> None:
-        """Reads the bitmap from disk into memory"""
-        bm_start = self.layout.access("Bitmap_Start").value
-        bm_size_bytes = self.total_blocks
-        buf = malloc(bm_size_bytes)
-        
-        fseek(self.drive_file, bm_start, SEEK_SET)
-        fread(buf, bm_size_bytes, 1, self.drive_file)
-        data = read(buf, bm_size_bytes)
-        self.bitmap = bytearray(data)
-        free(buf)
-            
-    def make_meta_entry(self, path:str, addr:int, block_span:int, permission_table_offset:int, dir_:bool=False) -> Struct:
-        """Creates and returns a File Table Entry"""
-        entry = {"path": path, "addr": addr, "span": block_span, "permission_table_offset": permission_table_offset}
-        if dir_:
-            self.folders.append(entry)
-        else:
-            self.files.append(entry)
-            
-        meta_entry = Struct(PBFS_FILE_TABLE_ENTRY)
-        meta_entry.set("Name", make_string(path))
-        meta_entry.set("File_Data_Offset", Uint64_t(addr))
-        meta_entry.set("Permission_Table_Offset", Uint64_t(permission_table_offset))
-        meta_entry.set("Block_Span", Uint64_t(block_span))
-        
-        return meta_entry
-        
-    def make_permission_table(read:int, write:int, executable:int, listable:int, hidden:int, full_control:int, delete:int, special_access:int, file_tree_offset:int) -> Struct:
-        """Creates and returns the permission table"""
-        permissions = Struct(PBFS_PERMISSION_TABLE_ENTRY)
-        permissions.set("Read", Uint16_t(read))
-        permissions.set("Write", Uint16_t(write))
-        permissions.set("Executable", Uint16_t(executable))
-        permissions.set("Listable", Uint16_t(listable))
-        permissions.set("Hidden", Uint16_t(hidden))
-        permissions.set("Full_Control", Uint16_t(full_control))
-        permissions.set("Special_Access", Uint16_t(special_access))
-        permissions.set("File_Tree_Offset", Uint32_t(file_trr_offset))
-        
-        return permissions
-        
-    def make_file_tree(files:list=["~"]) -> bytes:
-        """Creates and returns the file tree"""
-        tree:bytes = b""
-        for file in files:
-            file = file.encode("utf-8")
-            size = len(file)
-            if size > 20:
-                return tree
-            elif size < 20:
-                file += b"\x00" * (20 - size)
-            
-            tree += file
-            
-        return tree
-        
-    def read_file(self, path: str) -> bytes:
-        """Read a file from the drive by its path"""
-        # Find the file entry
-        entry = None
-        for f in self.files:
-            if f["path"].rstrip("\x00") == path:
-                entry = f
-                break
-    
-        if entry is None:
-            raise FileNotFoundError(f"File '{path}' not found in PBFS.")
-    
-        offset = entry["addr"]
-        block_span = entry["span"]
-        size = block_span * self.block_size
-    
-        # Allocate buffer and read from disk
-        buf = malloc(size)
-        fseek(self.drive_file, offset, SEEK_SET)
-        fread(buf, size, 1, self.drive_file)
-        data = read(buf, size)
-        free(buf)
-    
-        # Trim any padding zeros that were added during write
-        data = data.rstrip(b"\x00")
-        return data
-    
-    def close_drive(self) -> None:
-        """Closes the drive and frees up all the memory"""
-        del self.header
-        del self.layout
-        fclose(self.drive)
-        return
-    
+        pass

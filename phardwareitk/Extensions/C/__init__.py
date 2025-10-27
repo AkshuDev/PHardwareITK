@@ -45,7 +45,7 @@ def write_mem(data:bytes, size:int, addr:int) -> None:
 
     if addr > _memsize:
         raise OSError(
-            f"Trying to access memory outside of the virtual memory space using address [{hex(addr)}], while virtual memory has a size of [{hex(memsize)}]. [ERROR:PHardwareITK:Extensions:C - set_mem]"
+            f"Trying to access memory outside of the virtual memory space using address [{hex(addr)}], while virtual memory has a size of [{hex(_memsize)}]. [ERROR:PHardwareITK:Extensions:C - set_mem]"
         )
 
     data_ = data[:size]
@@ -60,7 +60,7 @@ def read_mem(size:int, addr: int) -> bytes:
 
     if addr > _memsize:
         raise OSError(
-            f"Trying to access memory outside of the virtual memory space using address [{hex(addr)}], while virtual memory has a size of [{hex(memsize)}]. [ERROR:PHardwareITK:Extensions:C - set_mem]"
+            f"Trying to access memory outside of the virtual memory space using address [{hex(addr)}], while virtual memory has a size of [{hex(_memsize)}]. [ERROR:PHardwareITK:Extensions:C - set_mem]"
         )
 
     return _memory.get_ram(size, addr)
