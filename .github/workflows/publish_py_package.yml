@@ -1,11 +1,3 @@
-# This workflow will upload a Python Package using Twine when a release is created
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python#publishing-to-package-registries
-
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-
 name: Upload Python Package
 
 on:
@@ -17,23 +9,49 @@ permissions:
 
 jobs:
   deploy:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python
-      uses: actions/setup-python@v3
-      with:
-        python-version: '3.8'
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install build
-    - name: Build package
-      run: python -m build
-    - name: Publish package
-      uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
-      with:
-        user: __token__
-        password: ${{ secrets.PYPI_TOKEN }}
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.8'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine setuptools wheel
+
+      - name: Determine version
+        id: version
+        run: |
+          # Remove leading 'v' if present in the Git tag
+          BASE_VERSION=${GITHUB_REF#refs/tags/v}
+          VERSION=$BASE_VERSION
+
+          # Append .devN for pre-releases
+          if [ "${{ github.event.release.prerelease }}" = "true" ]; then
+            # Use the GitHub run number to make it unique
+            VERSION="${BASE_VERSION}.dev${GITHUB_RUN_NUMBER}"
+          fi
+
+          echo "PACKAGE_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Determined package version: $VERSION"
+
+      - name: Update version in pyproject.toml
+        run: |
+          # Replace version line with the new version
+          sed -i "s/^version = .*/version = \"${PACKAGE_VERSION}\"/" pyproject.toml
+          cat pyproject.toml
+
+      - name: Build package
+        run: python -m build
+
+      - name: Publish package to PyPI
+        uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_TOKEN }}
+          skip_existing: true
