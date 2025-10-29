@@ -44,55 +44,17 @@ class GLFunctions:
     def __init__(self, driver):
         self._driver = driver
         self._lib = driver.lib
-        # Shaders
-        self.glCreateShader = None
-        self.glShaderSource = None
-        self.glCompileShader = None
-        self.glGetShaderiv = None
-        self.glGetShaderInfoLog = None
-        self.glCreateProgram = None
-        self.glAttachShader = None
-        self.glLinkProgram = None
-        self.glGetProgramiv = None
-        self.glGetProgramInfoLog = None
-        self.glUseProgram = None
 
-        # Buffers
-        self.glGenBuffers = None
-        self.glBindBuffer = None
-        self.glBufferData = None
+    def _get_proc_address(self, name: str, restype=None, argtypes: list=[]):
+        """Use the driver's loader to resolve function addresses."""
+        return self._driver.load_function(name, restype, argtypes)
 
-        # Textures
-        self.glGenTextures = None
-        self.glBindTexture = None
-        self.glTexImage2D = None
-
-        # Framebuffers
-        self.glGenFramebuffers = None
-        self.glBindFramebuffer = None
-
-        # Uniforms
-        self.glGetUniformLocation = None
-        self.glUniformMatrix4fv = None
-
-        # Viewport & Error
-        self.glViewport = None
-        self.glGetError = None
-
-        # Common functions for clear/draw
-        self.glClearColor = None
-        self.glClear = None
-
-    def _get_proc_address(self, name: str):
-        """Use the driver’s loader to resolve function addresses."""
-        return self._driver.load_function(name)
-
-    def _bind(self, name: str, restype, argtypes):
+    def _bind(self, name: str, restype=None, argtypes: list=[]):
         """Bind a GL function by name with argtypes/restype."""
-        addr = self._get_proc_address(name)
-        if not addr:
+        fn = self._get_proc_address(name, restype, argtypes)
+        if not fn:
             raise RuntimeError(f"Failed to load GL function: {name}")
-        fn = FuncType(restype, *argtypes)(addr)
+        
         setattr(self, name, fn)
         return fn
 
@@ -109,12 +71,12 @@ class GLFunctions:
         self.glShaderSource = self._bind("glShaderSource", None, [c_uint, c_int, POINTER(c_char_p), POINTER(c_int)])
         self.glCompileShader = self._bind("glCompileShader", None, [c_uint])
         self.glGetShaderiv = self._bind("glGetShaderiv", None, [c_uint, c_uint, POINTER(c_int)])
-        self.glGetShaderInfoLog = self._bind("glGetShaderInfoLog", None, [c_uint, c_int, POINTER(c_int), c_char_p])
+        self.glGetShaderInfoLog = self._bind("glGetShaderInfoLog", None, [c_uint, c_int, POINTER(c_int), POINTER(c_char)])
         self.glCreateProgram = self._bind("glCreateProgram", c_uint, [])
         self.glAttachShader = self._bind("glAttachShader", None, [c_uint, c_uint])
         self.glLinkProgram = self._bind("glLinkProgram", None, [c_uint])
         self.glGetProgramiv = self._bind("glGetProgramiv", None, [c_uint, c_uint, POINTER(c_int)])
-        self.glGetProgramInfoLog = self._bind("glGetProgramInfoLog", None, [c_uint, c_int, POINTER(c_int), c_char_p])
+        self.glGetProgramInfoLog = self._bind("glGetProgramInfoLog", None, [c_uint, c_int, POINTER(c_int), POINTER(c_char)])
         self.glUseProgram = self._bind("glUseProgram", None, [c_uint])
 
         # Buffers
@@ -140,6 +102,10 @@ class GLFunctions:
         # Viewport + Errors
         self.glViewport = self._bind("glViewport", None, [c_int, c_int, c_int, c_int])
         self.glGetError = self._bind("glGetError", c_uint, [])
+
+        # Color
+        self.glClearColor = self._bind("glClearColor", None, [c_float, c_float, c_float, c_float])
+        self.glClear = self._bind("glClear", None, [c_uint])
 
 class GLDriver(BaseGPUD):
     """Cross Platform OpenGL Driver"""
@@ -211,12 +177,6 @@ class GLDriver(BaseGPUD):
 
             self.gdi32 = ctypes.windll.gdi32
             self.user32 = ctypes.windll.user32
-            
-            if not self.hdc:
-                self.hdc = self.user32.GetDC(window)
-
-            if not self.hdc:
-                raise RuntimeError(f"GetDC failed — invalid window handle: {window}")
 
             if create_and_attach_ctx:
                 return self.create_context(display, window)
@@ -240,19 +200,27 @@ class GLDriver(BaseGPUD):
     def shutdown(self):
         self.destroy_context()
 
-    def load_function(self, name: str) -> c_void_p:
+    def load_function(self, name: str, restype=None, argtypes: list=[]) -> c_void_p:
         addr = None
         if self.platform == "linux":
-            addr = self.lib.glXGetProcAddress(name.encode())
+            addr = cast(self.lib.glXGetProcAddress(name.encode()), c_void_p)
         elif self.platform == "windows":
-            addr = self.lib.wglGetProcAddress(name.encode())
+            addr = ctypes.cast(self.lib.wglGetProcAddress(name.encode()), ctypes.c_void_p)
             if not addr:
                 try:
                     addr = getattr(self.lib, name)
                 except AttributeError:
                     addr = None
+        
+            if not isinstance(addr, c_void_p): # it is a CFUNCTYPE
+                addr = c_void_p(ctypes.cast(addr, c_void_p).value)
+
         if not addr:
             raise RuntimeError(f"Function {name} not found in GL driver")
+        
+        if isinstance(addr, c_void_p):
+            addr = cast(addr, FuncType(restype, *argtypes))
+        
         return addr
     
     def destroy_context(self):
@@ -281,6 +249,8 @@ class GLDriver(BaseGPUD):
             
             self.libGL._load_gl_functions_common()
 
+            self.lib.glXMakeCurrent(display, window, self.ctx)
+
             return PIonContext(
                 api_name="OpenGL",
                 native_handle={
@@ -295,6 +265,18 @@ class GLDriver(BaseGPUD):
                 }
             )
         elif self.platform == "windows":
+            self.user32.ShowWindow(window, 1)
+            self.user32.UpdateWindow(window)
+            self.user32.SetForegroundWindow(window)
+            self.user32.BringWindowToTop(window)
+            self.user32.RedrawWindow(window, None, None, 0x0001 | 0x0004 | 0x0080)  # RDW_INVALIDATE|UPDATENOW|FRAME
+
+            # Sleep a tick to let composition settle (important on Windows 10/11 + Intel)
+            import time
+            time.sleep(0.1)
+
+            self.hdc = self.user32.GetDC(window)
+            
             if not self.hdc:
                 raise RuntimeError(f"GetDC failed — invalid window handle: {window}")
 
@@ -337,17 +319,28 @@ class GLDriver(BaseGPUD):
             pfd.cStencilBits = 8
             pfd.iLayerType = PFD_MAIN_PLANE
 
-            fmt = self.gdi32.ChoosePixelFormat(self.hdc, ctypes.byref(pfd))
-            self.gdi32.SetPixelFormat(self.hdc, fmt, ctypes.byref(pfd))
+            exisiting_fmt = self.gdi32.GetPixelFormat(self.hdc)
+            fmt = exisiting_fmt
+
+            if exisiting_fmt == 0:
+                fmt = self.gdi32.ChoosePixelFormat(self.hdc, ctypes.byref(pfd))
+                if fmt == 0 or not self.gdi32.DescribePixelFormat(self.hdc, fmt, ctypes.sizeof(pfd), ctypes.byref(pfd)):
+                    raise RuntimeError(f"ChoosePixelFormat failed - invalid HWND or HDC\n\tERR: {ctypes.GetLastError()}")
+                if not self.gdi32.SetPixelFormat(self.hdc, fmt, ctypes.byref(pfd)):
+                    raise RuntimeError(f"SetPixelFormat failed - could not set pixel format\n\tERR: {ctypes.GetLastError()}")
 
             # Create OpenGL rendering context
             self.ctx = self.lib.wglCreateContext(self.hdc)
             if not self.ctx:
-                raise RuntimeError("Failed to create WGL Context")
+                raise RuntimeError(f"Failed to create WGL Context\n\tERR: {ctypes.GetLastError()}")
             res = self.lib.wglMakeCurrent(self.hdc, self.ctx)
             if not res:
-                raise RuntimeError("Failed to make WGL context current")
+                raise RuntimeError(f"Failed to make WGL context current\n\tERR: {ctypes.GetLastError()}")
 
+
+            current_ctx = self.lib.wglGetCurrentContext()
+            if current_ctx != self.ctx:
+                raise RuntimeError("WGL context is not current!")
             self.libGL._load_gl_functions_common()
 
             return PIonContext(

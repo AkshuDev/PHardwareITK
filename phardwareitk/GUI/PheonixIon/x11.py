@@ -498,13 +498,6 @@ def get_gpu(window_tuple, api:Optional[str]=None, driver:Optional[BaseGPUD]=None
     gpu = GPU_API(api, driver)
     return gpu
 
-def _x11_attach_context(display, window, ctx: PIonContext, driver: BaseGPUD):
-    if ctx.api_name.lower() == "opengl":
-        glx = ctx.native_handle
-        driver.glXMakeCurrent(display, glx["window"], glx["glx_context"])
-
 def attach_gpu(window_tuple, gpu:GPU_API) -> None:
     display, window = window_tuple
-    gpu.driver.init(display, window, create_and_attach_ctx=False)
-    ctx = gpu.driver.create_context(display, window)
-    _x11_attach_context(display, window, ctx, gpu.driver)
+    gpu.driver.init(display, window, create_and_attach_ctx=True)
