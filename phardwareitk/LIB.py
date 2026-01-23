@@ -16,8 +16,11 @@ class Paths:
     PLTEC = os.path.join(phardwareitk, 'PLTEC')
     System = os.path.join(phardwareitk, 'System')
     CLI = os.path.join(phardwareitk, 'CLI')
-
-    C = os.path.join(GUI, 'C')
+    GPU = os.path.join(phardwareitk, 'GPU')
+    Memory = os.path.join(phardwareitk, 'Memory')
+    PENV = os.path.join(phardwareitk, 'PENV')
+    
+    C = os.path.join(Extensions, 'C')
 
     #Inits
     __init__PY_phardwareitk = os.path.join(phardwareitk, '__init__.py')
