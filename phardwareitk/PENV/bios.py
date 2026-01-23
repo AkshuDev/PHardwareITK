@@ -1,7 +1,11 @@
 import os
 import sys
-import struct
+import json
+import uuid
+from datetime import datetime, timezone
+import platform
 from . import *
+from . import Devices as devices
 
 if not module_path in sys.path:
     sys.path.append(module_path)
@@ -9,189 +13,155 @@ if not module_path in sys.path:
 if not os.path.dirname(__file__) in sys.path:
     sys.path.append(os.path.dirname(__file__))
 
-from PBFS import PBFS_HEADER
-
 from phardwareitk.Memory import Memory as Mem
 from phardwareitk.PENV.shared import *
-from phardwareitk.PENV.framebuffer import Framebuffer
-from phardwareitk.PENV import PBFS
 
 SystemData: dict = {}
 drive_data: dict = {}
 
-DRIVE_PATH = os.path.join(base_path, "PheonixSSD.pbfs")
-DRIVE_FOLDER = os.path.join(base_path, ".hard_disk")
+DRIVE_PATH = os.path.join(base_path, "PheonixSSD.penv")
+VINFO_PATH = os.path.join(base_path, "vdrive.info")
 
 # Get System Info
-def GetSystemInfoBIOS() -> None:
+def GetSystemInfoBIOS(drive_info: dict, memsize: int) -> None:
     """Gets System Info"""
-    import psutil
-
-    SystemData["cpu_cores"] = os.cpu_count()
-    SystemData["cpu_architecture"] = platform.machine()
-    SystemData["processor_name"] = platform.processor()
-    SystemData["host_name"] = platform.node()
-    SystemData["host_system"] = platform.system()
-    SystemData["host_version"] = platform.version()
-    SystemData["host_release"] = platform.release()
-    SystemData["host_platform"] = platform.platform()
-    SystemData["host_uname"] = platform.uname()
-    SystemData["ram_size"] = round(
-        psutil.virtual_Mem().total / (1024**3), 2
-    )  # in GB
-    SystemData["storage_size"] = round(
-        psutil.disk_usage("/").total / (1024**3), 2
-    )  # in GB
+    
+    SystemData["cpu_cores"] = int(os.cpu_count())
+    SystemData["cpu_architecture"] = str(platform.machine())
+    SystemData["processor_name"] = str(platform.processor())
+    SystemData["host_name"] = str(platform.node())
+    SystemData["host_system"] = str(platform.system())
+    SystemData["host_version"] = str(platform.version())
+    SystemData["host_release"] = str(platform.release())
+    SystemData["host_platform"] = str(platform.platform())
+    SystemData["host_uname"] = str(platform.uname())
+    SystemData["storage_size"] = drive_info.get("block_size", 512) * drive_info.get("total_blocks", 2048) # in Bytes
+    SystemData["ram_size"] = memsize # in bytes
+    
+def make_drive_info(block_size: int, total_blocks: int, disk_name: str, boot_mode: int):
+    info = {
+        "disk_name": disk_name,
+        "block_size": block_size,
+        "total_blocks": total_blocks,
+        "boot_mode": boot_mode,
+        "first_boot_timestamp": 0,
+        "timestamp": int(datetime.now(timezone.utc).timestamp()),
+        "uuid": str(uuid.uuid4())
+    }
+    
+    with open(VINFO_PATH, "w") as f:
+        json.dump(info, f)
 
 def get_drive_data() -> int:
     if not os.path.exists(DRIVE_PATH):
         return -1  # Drive Error
 
-    if not os.path.exists(os.path.join(DRIVE_PATH, "vdrive.pbfs")):
-        return -2  # Drive Not Found
+    if not os.path.exists(VINFO_PATH):
+        return -2  # Drive Info Not Found
 
-    with open(os.path.join(DRIVE_PATH, "vdrive.pbfs"), "rb") as f:
+    with open(VINFO_PATH, "r") as f:
         data = f.read()
-
-    drive_data = struct.unpack(PBFS_HEADER_FORMAT, data[:68])
-
-    drive_data_ = {
-        "magic": drive_data[0].decode("utf-8"),
-        "block_size": drive_data[1],
-        "total_blocks": drive_data[2],
-        "disk_name": drive_data[3].decode("utf-8"),
-        "timestamp": drive_data[4],
-        "version": drive_data[5],
-        "first_boot_timestamp": drive_data[6],
-        "os_boot_mode": drive_data[7],
-        "uuid": data[68:].hex()
-    }
+    drive_data_ = json.loads(data)
 
     return drive_data_
+    
+def reset_timestamp(which_ts: int):
+    ts = int(datetime.now(timezone.utc).timestamp())
+    drive_info = get_drive_data()
+    if not isinstance(drive_info, dict):
+        return None
+    try:
+        if which_ts in [1, 3]:
+            # Default Timestamp
+            drive_info["timestamp"] = ts
+        if which_ts in [2, 3]:
+            drive_info["first_boot_timestamp"] = ts
+            
+        with open(VINFO_PATH, "w") as f:
+            json.dump(drive_info, f)
+    except Exception:
+        return None
 
 def search_for_bootloader() -> str:
-    """Searches for the bootloader in the drive data directory."""
-    # search the directory for file -> boot.info
-    bootinfo_path = os.path.join(DRIVE_FOLDER, "boot.info")
-    bootinfo_found: bool = True
-    bootloader_path = ""
-    if not os.path.exists(bootinfo_path):
-        bootinfo_found = False
+    """Searches for the bootloader in the drive."""
+    
+    vinfo = get_drive_data()
+    if not isinstance(vinfo, dict):
+        return "", 0
+    bootloader = ""
+    bl_max_size = vinfo.get("block_size", 512)
 
-    # IF oot Info file is not found, it means this is a first time boot
-    if not bootinfo_found:
-        # Search the dir for all .py files
-        files = []
-
-        for file_ in os.listdir(DRIVE_FOLDER):
-            if file_.endswith(".py") or file_.endswith(".vasm"):
-                files.append(file_)
-
-        if not files:
-            # Search all 512-byte files
-            for file_ in os.listdir(DRIVE_FOLDER):
-                if os.stat(os.path.join(DRIVE_FOLDER, file_)).st_size == 512:
-                    files.append(file_)
-
-        print("Acceptable maybe bootloader files:", files)
-
-        # Get the last 4 bytes of the file
-        bootloader_path = ""
-        buff: bytes = b""
-        print("Trying to find bootloader signature (AA55)")
-        for file_ in files:
-            with open(os.path.join(DRIVE_FOLDER, file_), "rb") as f:
-                f.seek(-4, os.SEEK_END)
-                buff = f.read(4)
-                if buff == b"AA55":
-                    bootloader_path = os.path.join(DRIVE_FOLDER, file_)
-                if buff == b"A55\n": #Incase of auto newline
-                    f.seek(-5, os.SEEK_END)
-                    buff = f.read(4)
-                    if buff == b"AA55":
-                        bootloader_path = os.path.join(DRIVE_FOLDER, file_)
-
-        # Make bootinfo file
-        if not bootloader_path:
-            print("No bootloader found. Please install a bootloader.")
-            return ""
+    # Search the first block:
+    with open(DRIVE_PATH, "rb") as f:
+        bootloader = f.read(bl_max_size).strip(b'\0').decode("utf-8")
+        buff = bootloader[-4:]
+        if buff == "AA55":
+            pass
+        elif buff == "A55\n": #Incase of auto newline
+            buff = bootloader[-5:]
+            if buff == b"AA55\n":
+                pass
+            else:
+                bootloader = ""
         else:
-            print("Writing boot.info ...")
-            with open(bootinfo_path, "wb") as f:
-                data = bootloader_path + "\n" + platform.system().lower()
-                f.write(data.encode("utf-8"))
-    else:
-        with open(bootinfo_path, "rb") as f:
-            bootloader_path = f.read().decode("utf-8").split("\n")
-            required_os = bootloader_path[1]
-            bootloader_path = bootloader_path[0]
+            bootloader = ""
+        
+    if not bootloader:
+        print("No bootloader found. Please install a bootloader.")
+        return "", 0
 
-        if not required_os == platform.system().lower():
-            print("Boot.Info file was created in another OS!")
-            os.remove(bootinfo_path)
-            bootloader_path = search_for_bootloader()
+    return bootloader, len(bootloader)
 
-        if not os.path.exists(bootloader_path):
-            print("Boot.Info file doesn't contain a valid path, rewriting...")
-            os.remove(bootinfo_path)
-            bootinfo_path = search_for_bootloader()
-
-    return bootloader_path
-
-def run_bootloader(file_path: str, mem: Mem.Memory, bios_ram_start_addr: int, fb: Framebuffer) -> tuple:
+def run_bootloader(mem: Mem.Memory, general_ram_start_addr: int, memsize: int) -> tuple:
     set_mem(mem)
+    bl, bl_size = search_for_bootloader()
+    mem.write_ram(bl.encode("utf-8"), general_ram_start_addr)
 
-    size_of_bl: int = os.stat(file_path).st_size
-
-    if size_of_bl > 512:
-        return ("!ERROR!", None, None, None)
-
-    with open(file_path, "rb") as f:
-        f.seek(0)
-        mem.write_ram(f.read(), bios_ram_start_addr)
-
-    set_framebuffer(fb)
     _drive_data = get_drive_data()
+    if not isinstance(_drive_data, dict):
+        return None
     set_disk_data(_drive_data)
-    set_sys_data(GetSystemInfoBIOS())
+    set_sys_data(GetSystemInfoBIOS(_drive_data, memsize))
 
     exec_globals = {}
     exec_globals["__int__"] = interrupt
+    exec_globals["__builtins__"] = {}
 
     print("Running Bootloader...")
     try:
-        exec(mem.get_ram(size_of_bl, bios_ram_start_addr).decode("utf-8"), exec_globals)
+        exec(mem.get_ram(bl_size, general_ram_start_addr).decode("utf-8"), exec_globals, None)
     except PenvInturruptReturn as e:
         if _drive_data["first_boot_timestamp"] == 0:
-            import time
-            import uuid
             # Write the timestamp to the drive data
-            drive_data = []
-            drive_data.append(_drive_data["magic"].encode("utf-8"))
-            drive_data.append(_drive_data["block_size"])
-            drive_data.append(_drive_data["total_blocks"])
-            drive_data.append(_drive_data["disk_name"].encode("utf-8"))
-            drive_data.append(_drive_data["timestamp"])
-            drive_data.append(_drive_data["version"])
-            drive_data.append(int(time.time()))
-            drive_data.append(_drive_data["os_boot_mode"])
-            drive_data.append(0)
-            drive_data.append(0)
+            reset_timestamp(2)
 
-            data = struct.pack(PBFS_HEADER_FORMAT, *drive_data)
-            data += uuid.UUID(bytes=bytes.fromhex(_drive_data["uuid"])).bytes
-
-            with open(os.path.join(DRIVE_PATH, "vdrive.pbfs"), "wb") as f:
-                f.write(data)
-
-            print("Updated first boot timestamp to:", int(time.time()))
+            print("Updated first boot timestamp")
 
         return (str(e), SystemData, _drive_data, DRIVE_PATH)
 
-def start() -> str:
-    GetSystemInfoBIOS()
-    get_drive_data()
-    file_ = search_for_bootloader()
-    set_sys_data(SystemData)
-    set_disk_data(disk_data)
-    return file_
+def start(base_size: int, general_ram_addr: int) -> str:
+    mem = Mem.Memory(base_size, 0, None, False, 0)
+    status = run_bootloader(mem, general_ram_addr, base_size)
+    if status:
+        se, sysd, drived, drivep = status
+        e = json.loads(se)
+        etype = e.get("type", -1)
+        if etype == 0x51: # Protected Mode
+            # Run kernel
+            esize = e.get("size", 0)
+            elba = e.get("lba", 1)
+            eloc = elba * drived.get("block_size", 512)
+            kernel = ""
+            with open(drivep, "rb") as f:
+                f.seek(eloc)
+                for i in range(esize):
+                    kernel += f.read(drived.get("block_size", 512)).strip(b'\0').decode("utf-8")
+            exec_globals = {}
+            exec_globals["__system_info__"] = sysd
+            exec_globals["__drive_info__"] = drived
+            exec_globals["__drive_path__"] = drivep
+            exec_globals["__args__"] = e.get("kernel_args", None)
+            exec_globals["__in__"] = devices.route_in
+            exec_globals["__out__"] = devices.route_out
+            exec_globals["__builtins__"] = {}
+            exec(kernel, exec_globals, None)

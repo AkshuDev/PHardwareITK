@@ -1,4 +1,7 @@
-"""Provides almost all file paths in the module"""
+"""Provides almost all file paths in the module
+
+NOTE: DEPRECATED, NO MORE UPDATES WILL BE PUSHED IN THIS FILE
+"""
 
 import os
 

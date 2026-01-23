@@ -101,7 +101,7 @@ def interrupt(code: int, *args):
         if platform.system().lower() == "windows":
             os.system("cls")
         elif platform.system().lower() in posix_os:
-            os.system("cls")
+            os.system("clear")
         else:
             print("\033[2J\033[H")
 
@@ -110,8 +110,8 @@ def interrupt(code: int, *args):
         table["type"] = 0x51
         return_ = json.dumps(table)
         raise PenvInturruptReturn(return_)  # Stop the exec function
-    elif code == 0x60:  # Call file and exit
-        table: dict = {"type": 0x60, "filename": args[0]}
+    elif code == 0x60:  # Call code and exit
+        table: dict = {"type": 0x60, "lba": args[0]}
         return_ = json.dumps(table)
         raise PenvInturruptReturn(return_)
 

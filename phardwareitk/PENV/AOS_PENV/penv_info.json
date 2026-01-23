@@ -1,0 +1,12 @@
+{
+    "exclude": ["__init__.py", "__pycache__/*"],
+    "bootloader": "boot.py",
+    "type": "python",
+    "min_req_blocks": 1024,
+    "order": {
+        "boot.py": {"lba": 0, "idx": 0},
+        "drivers.py": {"lba": 1, "idx": 1},
+        "AOS_Kernel.py": {"idx": 2},
+        "aoshelp.py": {"idx": 3}
+    }
+}
