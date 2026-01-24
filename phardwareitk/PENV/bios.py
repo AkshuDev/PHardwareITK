@@ -164,4 +164,6 @@ def start(base_size: int, general_ram_addr: int) -> str:
             exec_globals["__in__"] = devices.route_in
             exec_globals["__out__"] = devices.route_out
             exec_globals["__builtins__"] = {}
+            devices.setup()
             exec(kernel, exec_globals, None)
+            devices.end()

@@ -1,3 +1,5 @@
+import platform
+
 class ConsoleDevice:
     def __init__(self):
         self.buffer = ""
@@ -12,11 +14,18 @@ class ConsoleDevice:
         self.buffer += str(val)
         if inout:
             return 1
+            
+    def cmd_console_clear(self, val:int, inout: bool):
+        print("\x1b[2J\x1b[H", end="", flush=True)
+        if inout:
+            return 1
     
 def console_route(console: ConsoleDevice, port:int, arg: int, inout: bool):
     if port == 0x1:
         return console.cmd_console_flush(arg, inout)
     elif port == 0x2:
         return console.cmd_console_write(arg, inout)
+    elif port == 0x3:
+        return console.cmd_console_clear(arg, inout)
     if inout:
         return 0

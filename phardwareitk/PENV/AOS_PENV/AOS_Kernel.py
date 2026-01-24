@@ -1,9 +1,4 @@
-_cd_ = "home"  # Current directory
-_cd_backup = "home"
-_user = "admin"
-_pass = None
-
-print("Kernel Loaded in Protected Mode!", flush=True)
+_kernel_start = ""
 
 def _p_sys_info() -> None:
     print("CPU cores:", int_to_str(__system_info__["cpu_cores"]))
@@ -21,6 +16,37 @@ def _p_sys_info() -> None:
     print("Host Storage Size (Bytes):", int_to_str(__system_info__["storage_size"]))
     print("Host Storage Size (MB):", float_to_str(__system_info__["storage_size"] / 1024**2))
     print("Host Storage Size (GB):", float_to_str(__system_info__["ram_size"] / 1024**3))
-    print("", flush=True)
+    print("", flush=True, endl=False)
 
-_p_sys_info()
+def aos_shell_help():
+    print("Commands:")
+    print("\tsysinfo: Prints system information")
+    print("\tshutdown: Shutdown AOS")
+    print("\tclear: Clears the screen")
+    print("\thelp: Prints this help message")
+    print("", endl=False, flush=True)
+
+_cmd = ""
+_running = True
+_cd_ = "home"  # Current directory
+_cd_backup = "home"
+_user = "admin"
+if not kbd_enable_scanning():
+    _running = False
+    print("Could not enable PS2 Keyboard Scanning! Shutting Down!", flush=True)
+    
+while _running:
+    _cmd = input(_cd_ + " $: ")
+    if _cmd == "sysinfo":
+        _p_sys_info()
+        continue
+    elif _cmd == "shutdown":
+        _running = False
+        continue
+    elif _cmd == "clear":
+        clear()
+        continue
+    elif _cmd == "help":
+        aos_shell_help()
+    else:
+        print("Unknown command:", _cmd, "\n\tMaybe try using help?", flush=True)
