@@ -1,6 +1,3 @@
-# X11 YOU MADE MY LIFE A LIVING NIGHTMARE!!!!!!
-# TOTAL HOURS WASTED: 9
-
 import ctypes
 import os
 from ctypes import c_int, c_ulong, c_char_p, c_void_p, POINTER, c_long, c_uint, cdll
@@ -301,7 +298,7 @@ def x_error_handler(error_event_ptr):
 
 libX11.XSetErrorHandler(x_error_handler)
 
-def _get_display():
+def _get_display() -> Display:
     global _display
     if not _display:
         libX11.XOpenDisplay.restype = Display
@@ -501,3 +498,4 @@ def get_gpu(window_tuple, api:Optional[str]=None, driver:Optional[BaseGPUD]=None
 def attach_gpu(window_tuple, gpu:GPU_API) -> None:
     display, window = window_tuple
     gpu.driver.init(display, window, create_and_attach_ctx=True)
+    

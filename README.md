@@ -6,7 +6,7 @@
 [![PyPI Downloads](https://static.pepy.tech/badge/phardwareitk/week)](https://pepy.tech/projects/phardwareitk)
 ## Overview
 
-PHardwareITK, or Pheonix Hardware Interface Toolkit, is a comprehensive Python module developed by Pheonix Studios (AkshuDev/Akshobhya). This toolkit provides a variety of functions and utilities to assist developers in creating complex command-line applications, graphical user interfaces, system utilities, and more. With over 50 distinct functions and multiple specialized toolsets, PHardwareITK is designed to be versatile, modular, and cross-platform, ensuring compatibility with a wide range of development needs.
+PHardwareITK, or Pheonix Hardware Interface Toolkit, is a comprehensive Python module developed by Pheonix Studios (Its Pheonix not Phoenix. Purposely spelled that way) and its founder AkshuDev (Online alias of Akshobhya Sasun). This toolkit provides a variety of functions and utilities to assist developers in creating complex command-line applications, graphical user interfaces, system utilities, and more. With over 50 distinct functions and multiple specialized toolsets, PHardwareITK is designed to be versatile, modular, and cross-platform, ensuring compatibility with a wide range of development needs.
 
 For examples please visit -> [https://github.com/AkshuDev/PHardwareITK] and navigate to the Tests folder.
 
